@@ -1,0 +1,55 @@
+======================================================================
+PART (d): COMPARE MODEL LIKELIHOODS
+======================================================================
+
+Observation sequence (20 timesteps):
+['null', 'LA', 'LA', 'null', 'NY', 'null', 'NY', 'NY', 'NY', 'null', 'NY', 'NY', 'NY', 'NY', 'NY', 'null', 'null', 'LA', 'LA', 'NY']
+
+----------------------------------------------------------------------
+LIKELIHOOD COMPARISON
+----------------------------------------------------------------------
+
+P(Y_1,...,Y_t | λ)  = 1.915348e-10
+P(Y_1,...,Y_t | λ') = 1.667482e-09
+
+Ratio P(λ') / P(λ)  = 8.705896
+Relative improvement = +770.59%
+
+----------------------------------------------------------------------
+VERIFICATION
+----------------------------------------------------------------------
+
+✓ SUCCESS: P(Y_1,...,Y_t | λ') > P(Y_1,...,Y_t | λ)
+
+The updated model λ' is MORE LIKELY to generate the observed
+sequence than the original model λ.
+
+This confirms the Baum-Welch algorithm successfully improved
+the model parameters to better fit the observations.
+
+======================================================================
+INTERPRETATION
+======================================================================
+
+The Baum-Welch algorithm is an EM (Expectation-Maximization) algorithm:
+
+1. E-step: Compute γ and ξ (expected sufficient statistics)
+   - γ_k(x): Expected time in state x at timestep k
+   - ξ_k(x,x'): Expected transitions from x to x' at timestep k
+
+2. M-step: Update parameters to maximize likelihood
+   - π' = γ_1 (initial state distribution)
+   - T'_{x,x'} = (expected x→x' transitions) / (expected time in x)
+   - M'_{x,y} = (expected time in x with obs y) / (expected time in x)
+
+After one iteration, the likelihood increased by 770.59%.
+Multiple iterations would continue to improve the model until convergence.
+
+======================================================================
+LOG-LIKELIHOOD (for numerical stability)
+======================================================================
+
+log P(Y_1,...,Y_t | λ)  = -22.3760
+log P(Y_1,...,Y_t | λ') = -20.2120
+
+Difference: 2.1640

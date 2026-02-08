@@ -1,0 +1,94 @@
+Problem 2 Part (b) - Mathematical Derivation
+============================================
+
+Goal: Show that
+    ξ_k(x, x') = η · α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x')
+
+where η is a normalizing constant such that Σ_{x,x'} ξ_k(x, x') = 1.
+
+----------------------------------------------------------------------
+
+Definition:
+    ξ_k(x, x') = P(X_k = x, X_{k+1} = x' | Y_1, ..., Y_t, λ)
+
+This is the probability of being in state x at time k and transitioning
+to state x' at time k+1, given all observations Y_1,...,Y_t.
+
+----------------------------------------------------------------------
+
+Step 1: Apply Bayes' Rule
+
+    ξ_k(x, x') = P(X_k = x, X_{k+1} = x', Y_1,...,Y_t) / P(Y_1,...,Y_t)
+
+The denominator P(Y_1,...,Y_t) is just a normalizing constant η.
+
+Focus on the numerator:
+    P(X_k = x, X_{k+1} = x', Y_1,...,Y_t)
+
+----------------------------------------------------------------------
+
+Step 2: Decompose the Joint Probability
+
+Using the chain rule and conditional independence properties of HMMs (see part_b_detailed_derivation.txt):
+
+    P(X_k = x, X_{k+1} = x', Y_1,...,Y_t)
+
+    = P(Y_1,...,Y_k, X_k = x)
+      × P(X_{k+1} = x' | X_k = x)
+      × P(Y_{k+1} | X_{k+1} = x')
+      × P(Y_{k+2},...,Y_t | X_{k+1} = x')
+
+Explanation of each term:
+    - P(Y_1,...,Y_k, X_k = x): Joint prob of past observations and state at k
+    - P(X_{k+1} = x' | X_k = x): State transition probability
+    - P(Y_{k+1} | X_{k+1} = x'): Observation probability at k+1
+    - P(Y_{k+2},...,Y_t | X_{k+1} = x'): Future observations given state at k+1
+
+----------------------------------------------------------------------
+
+Step 3: Recognize α and β
+
+From the definitions:
+    α_k(x) = P(Y_1,...,Y_k, X_k = x)
+    β_k(x) = P(Y_{k+1},...,Y_t | X_k = x)
+
+Note carefully: β_k(x) includes Y_{k+1} in its definition!
+
+However, we need β_{k+1}(x') which is:
+    β_{k+1}(x') = P(Y_{k+2},...,Y_t | X_{k+1} = x')
+
+This only covers observations from k+2 onwards.
+
+Therefore, Y_{k+1} must be handled separately using the observation matrix M.
+
+----------------------------------------------------------------------
+
+Step 4: Substitute into the Formula
+
+Using the HMM parameters:
+    - T_{x,x'} = P(X_{k+1} = x' | X_k = x)  [transition matrix]
+    - M_{x',y_{k+1}} = P(Y_{k+1} = y_{k+1} | X_{k+1} = x')  [emission matrix]
+
+We can rewrite Step 2 as:
+    P(X_k = x, X_{k+1} = x', Y_1,...,Y_t)
+    = α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x')
+
+----------------------------------------------------------------------
+
+Step 5: Normalize
+
+    ξ_k(x, x') = α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x') / Z
+
+where Z = Σ_{x,x'} α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x')
+
+Setting η = 1/Z, we get:
+
+    ξ_k(x, x') = η · α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x')
+
+which ensures Σ_{x,x'} ξ_k(x, x') = 1.  ∎
+
+----------------------------------------------------------------------
+
+Key Insight:
+The crucial step is understanding that β_{k+1}(x') starts from Y_{k+2},
+so Y_{k+1} must be explicitly included via the emission matrix M_{x',y_{k+1}}.

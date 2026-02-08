@@ -1,0 +1,211 @@
+Problem 2 Part (c) - Update HMM Parameters Logic
+===============================================
+
+GOAL: Use γ and ξ to compute updated HMM λ' = (π', T', M')
+
+----------------------------------------------------------------------
+
+INPUTS (from part a and b):
+- γ_k(x): Smoothing probabilities for all k=1,...,20 and states x∈{LA,NY}
+- ξ_k(x,x'): Joint transition probabilities for k=1,...,19 and state pairs
+- Original model λ = (π, T, M)
+
+OUTPUTS:
+- Updated model λ' = (π', T', M')
+- Comparison showing which parameters changed
+
+----------------------------------------------------------------------
+
+STEP 1: COMPUTE ξ_k(x,x')
+==========================
+
+Formula (from part b):
+    ξ_k(x,x') = η · α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x')
+
+where η is a normalization constant making Σ_{x,x'} ξ_k(x,x') = 1
+
+Implementation:
+    For each k from 1 to 19 (t-1):
+        For each state pair (x, x'):
+            numerator = α_k(x) · T_{x,x'} · M_{x',y_{k+1}} · β_{k+1}(x')
+
+        Sum all numerators to get normalization constant
+
+        For each state pair (x, x'):
+            ξ_k(x,x') = numerator / normalization
+
+Result: ξ is a 3D array of shape (19, 2, 2)
+        ξ[k, i, j] = probability of transition from state i to j at time k
+
+----------------------------------------------------------------------
+
+STEP 2: UPDATE INITIAL DISTRIBUTION π'
+=======================================
+
+Formula:
+    π'(x) = γ_1(x)
+
+Intuition:
+    What's the probability we started in state x?
+    Just use the smoothed probability at the first timestep.
+
+Implementation:
+    π'[0] = γ[0, 0]  # probability started in LA
+    π'[1] = γ[0, 1]  # probability started in NY
+
+Example:
+    If γ_1(LA) = 0.5556, γ_1(NY) = 0.4444
+    Then π' = [0.5556, 0.4444]
+
+    Compare to original π = [0.5, 0.5]
+    We learned the criminal was slightly more likely to start in LA.
+
+----------------------------------------------------------------------
+
+STEP 3: UPDATE TRANSITION MATRIX T'
+====================================
+
+Formula:
+    T'_{x,x'} = Σ_{k=1}^{t-1} ξ_k(x,x') / Σ_{k=1}^{t-1} γ_k(x)
+
+Intuition:
+    Numerator   = Expected number of transitions from x to x'
+    Denominator = Expected number of times in state x
+    Ratio       = Fraction of times in x that we transitioned to x'
+
+Implementation:
+    For each state x (LA or NY):
+        For each state x' (LA or NY):
+            numerator = sum of ξ_k(x,x') for k=1,...,19
+            denominator = sum of γ_k(x) for k=1,...,19
+            T'_{x,x'} = numerator / denominator
+
+NOTE: Use k=1 to t-1 (not t) because there's no transition after the last timestep.
+      In our case: k=0 to 18 (19 timesteps) in 0-indexed arrays.
+
+Example calculation for T'_{LA,NY}:
+    numerator = ξ_1(LA,NY) + ξ_2(LA,NY) + ... + ξ_19(LA,NY)
+              = (sum over 19 timesteps of "prob we were in LA and moved to NY")
+
+    denominator = γ_1(LA) + γ_2(LA) + ... + γ_19(LA)
+                = (sum over 19 timesteps of "prob we were in LA")
+
+    T'_{LA,NY} = numerator / denominator
+               = (expected LA→NY transitions) / (expected times in LA)
+
+If we were in LA 8 times and went to NY 3 times:
+    T'_{LA,NY} ≈ 3/8 = 0.375
+
+Compare to original T_{LA,NY} = 0.5, we learned LA→NY is less likely.
+
+----------------------------------------------------------------------
+
+STEP 4: UPDATE EMISSION MATRIX M'
+==================================
+
+Formula:
+    M'_{x,y} = Σ_{k=1}^{t} γ_k(x)·𝟙{y_k=y} / Σ_{k=1}^{t} γ_k(x)
+
+where 𝟙{y_k=y} = 1 if observation at timestep k equals y, else 0
+
+Intuition:
+    Numerator   = Expected number of times in state x AND observed y
+    Denominator = Expected number of times in state x
+    Ratio       = Fraction of times in x that we observed y
+
+Implementation:
+    For each state x (LA or NY):
+        denominator = sum of γ_k(x) for k=1,...,20
+
+        For each observation y (LA, NY, null):
+            numerator = 0
+            For k=1 to 20:
+                if observation_k == y:
+                    numerator += γ_k(x)
+
+            M'_{x,y} = numerator / denominator
+
+NOTE: Use k=1 to t (all 20 timesteps) because every timestep has an observation.
+      In 0-indexed arrays: k=0 to 19.
+
+Example calculation for M'_{NY,null}:
+    denominator = γ_1(NY) + γ_2(NY) + ... + γ_20(NY)
+                = (total expected time in NY across all 20 days)
+
+    numerator = sum over timesteps where we observed 'null':
+                γ_1(NY)·1 + γ_2(NY)·0 + γ_3(NY)·0 + γ_4(NY)·1 + ...
+              = γ_1(NY) + γ_4(NY) + γ_6(NY) + γ_10(NY) + γ_16(NY) + γ_17(NY)
+              = (expected times in NY when we observed null)
+
+    M'_{NY,null} = numerator / denominator
+
+If we were in NY 10 times total, and saw null 3 of those times:
+    M'_{NY,null} ≈ 3/10 = 0.3
+
+Compare to original M_{NY,null} = 0.4, we learned null is less common in NY.
+
+----------------------------------------------------------------------
+
+STEP 5: COMPARE λ AND λ'
+=========================
+
+Original model λ:
+    π = [0.5, 0.5]
+
+    T = [[0.5, 0.5],
+         [0.5, 0.5]]
+
+    M = [[0.4, 0.1, 0.5],   # LA: 40% see LA, 10% see NY, 50% see null
+         [0.1, 0.5, 0.4]]   # NY: 10% see LA, 50% see NY, 40% see null
+
+Updated model λ':
+    π' = [computed from γ_1]
+    T' = [computed from ξ and γ]
+    M' = [computed from γ and observations]
+
+Output:
+    - Print both models side by side
+    - Highlight which entries changed significantly
+    - Explain what the changes mean (e.g., "criminal tends to stay in NY more")
+
+----------------------------------------------------------------------
+
+EXPECTED INSIGHTS:
+
+Looking at the observation sequence:
+    (null, LA, LA, null, NY, null, NY, NY, NY, null,
+     NY, NY, NY, NY, NY, null, null, LA, LA, NY)
+
+We see:
+    - Many consecutive NY observations (steps 7-15)
+    - Fewer LA observations overall
+    - null observations scattered throughout
+
+Expected changes in λ':
+    - T'_{NY,NY} should be > 0.5 (tends to stay in NY)
+    - T'_{LA,LA} might be > 0.5 (tends to stay in LA when there)
+    - M'_{NY,NY} should be higher (NY observations more common)
+    - Emission probabilities should reflect actual observation patterns
+
+----------------------------------------------------------------------
+
+IMPLEMENTATION NOTES:
+
+1. Be careful with array indices:
+   - Time k in formulas is 1-indexed
+   - Arrays in Python are 0-indexed
+   - ξ has shape (T-1, N, N) where T=20, N=2
+   - γ has shape (T, N) where T=20, N=2
+
+2. Observations mapping:
+   - LA=0, NY=1, null=2
+   - Use this when indexing into M
+
+3. State mapping:
+   - LA=0, NY=1
+   - Use this when indexing into T, M, π
+
+4. Normalization:
+   - Each row of T' should sum to 1 (transition probabilities)
+   - Each row of M' should sum to 1 (emission probabilities)
+   - π' should sum to 1 (initial distribution)

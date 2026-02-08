@@ -1,0 +1,114 @@
+Problem 2 Part (a) Results
+==========================
+
+Observation Sequence (20 periods):
+null, LA, LA, null, NY, null, NY, NY, NY, null, NY, NY, NY, NY, NY, null, null, LA, LA, NY
+
+States: LA (x1), NY (x2)
+Observations: LA (y1), NY (y2), null (y3)
+
+Initial distribution π = [0.5, 0.5]
+
+Transition matrix T:
+     LA    NY
+LA  0.5   0.5
+NY  0.5   0.5
+
+Emission matrix M:
+      y1(LA)  y2(NY)  y3(null)
+LA     0.4     0.1      0.5
+NY     0.1     0.5      0.4
+
+
+=== TABLE 1: Forward Probabilities (α) ===
+
+  k | Observation |    α_k(LA)    |    α_k(NY)
+----|-------------|---------------|---------------
+  1 |    null     | 2.500000e-01  | 2.000000e-01
+  2 |     LA      | 9.000000e-02  | 2.250000e-02
+  3 |     LA      | 2.250000e-02  | 5.625000e-03
+  4 |    null     | 7.031250e-03  | 5.625000e-03
+  5 |     NY      | 6.328125e-04  | 3.164063e-03
+  6 |    null     | 9.492188e-04  | 7.593750e-04
+  7 |     NY      | 8.542969e-05  | 4.271484e-04
+  8 |     NY      | 2.562891e-05  | 1.281445e-04
+  9 |     NY      | 7.688672e-06  | 3.844336e-05
+ 10 |    null     | 1.153301e-05  | 9.226406e-06
+ 11 |     NY      | 1.037971e-06  | 5.189854e-06
+ 12 |     NY      | 3.113912e-07  | 1.556956e-06
+ 13 |     NY      | 9.341736e-08  | 4.670868e-07
+ 14 |     NY      | 2.802521e-08  | 1.401260e-07
+ 15 |     NY      | 8.407563e-09  | 4.203781e-08
+ 16 |    null     | 1.261134e-08  | 1.008908e-08
+ 17 |    null     | 5.675105e-09  | 4.540084e-09
+ 18 |     LA      | 2.043038e-09  | 5.107594e-10
+ 19 |     LA      | 5.107594e-10  | 1.276899e-10
+ 20 |     NY      | 3.192246e-11  | 1.596123e-10
+
+
+=== TABLE 2: Backward Probabilities (β) ===
+
+  k | Observation |    β_k(LA)    |    β_k(NY)
+----|-------------|---------------|---------------
+  1 |    null     | 4.256329e-10  | 4.256329e-10
+  2 |     LA      | 1.702531e-09  | 1.702531e-09
+  3 |     LA      | 6.810126e-09  | 6.810126e-09
+  4 |    null     | 1.513361e-08  | 1.513361e-08
+  5 |     NY      | 5.044538e-08  | 5.044538e-08
+  6 |    null     | 1.121008e-07  | 1.121008e-07
+  7 |     NY      | 3.736695e-07  | 3.736695e-07
+  8 |     NY      | 1.245565e-06  | 1.245565e-06
+  9 |     NY      | 4.151883e-06  | 4.151883e-06
+ 10 |    null     | 9.226406e-06  | 9.226406e-06
+ 11 |     NY      | 3.075469e-05  | 3.075469e-05
+ 12 |     NY      | 1.025156e-04  | 1.025156e-04
+ 13 |     NY      | 3.417188e-04  | 3.417188e-04
+ 14 |     NY      | 1.139063e-03  | 1.139063e-03
+ 15 |     NY      | 3.796875e-03  | 3.796875e-03
+ 16 |    null     | 8.437500e-03  | 8.437500e-03
+ 17 |    null     | 1.875000e-02  | 1.875000e-02
+ 18 |     LA      | 7.500000e-02  | 7.500000e-02
+ 19 |     LA      | 3.000000e-01  | 3.000000e-01
+ 20 |     NY      | 1.000000e+00  | 1.000000e+00
+
+
+=== TABLE 3: Smoothing Probabilities (γ) ===
+
+  k | Observation |  γ_k(LA)  |  γ_k(NY)  | Most Likely State
+----|-------------|-----------|-----------|------------------
+  1 |    null     |   0.5556  |   0.4444  |        LA
+  2 |     LA      |   0.8000  |   0.2000  |        LA
+  3 |     LA      |   0.8000  |   0.2000  |        LA
+  4 |    null     |   0.5556  |   0.4444  |        LA
+  5 |     NY      |   0.1667  |   0.8333  |        NY
+  6 |    null     |   0.5556  |   0.4444  |        LA
+  7 |     NY      |   0.1667  |   0.8333  |        NY
+  8 |     NY      |   0.1667  |   0.8333  |        NY
+  9 |     NY      |   0.1667  |   0.8333  |        NY
+ 10 |    null     |   0.5556  |   0.4444  |        LA
+ 11 |     NY      |   0.1667  |   0.8333  |        NY
+ 12 |     NY      |   0.1667  |   0.8333  |        NY
+ 13 |     NY      |   0.1667  |   0.8333  |        NY
+ 14 |     NY      |   0.1667  |   0.8333  |        NY
+ 15 |     NY      |   0.1667  |   0.8333  |        NY
+ 16 |    null     |   0.5556  |   0.4444  |        LA
+ 17 |    null     |   0.5556  |   0.4444  |        LA
+ 18 |     LA      |   0.8000  |   0.2000  |        LA
+ 19 |     LA      |   0.8000  |   0.2000  |        LA
+ 20 |     NY      |   0.1667  |   0.8333  |        NY
+
+
+Verification: γ_k sums to 1 for all k ✓
+
+
+=== Pointwise Most Likely State Sequence ===
+
+Expected: (LA, LA, LA, LA, NY, LA, NY, NY, NY, LA, NY, NY, NY, NY, NY, LA, LA, LA, LA, NY)
+Obtained: (LA, LA, LA, LA, NY, LA, NY, NY, NY, LA, NY, NY, NY, NY, NY, LA, LA, LA, LA, NY)
+
+Result: MATCH ✓
+
+Note: Smoothing successfully fills in the missing observations (null) by using
+information from both past and future observations. For example, at step 6 where
+the observation is "null", the smoothing algorithm infers the most likely state
+is LA based on the surrounding context.
