@@ -1,0 +1,245 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{xcolor}
+
+\geometry{margin=1in}
+
+\tcbuselibrary{skins, breakable}
+\newtcolorbox{answerbox}{
+  colback=gray!10,
+  colframe=gray!50,
+  fonttitle=\bfseries,
+  title=Answer,
+  breakable
+}
+
+\title{\textbf{ESE 650: Learning in Robotics}\\
+Problem 3 --- Practice Questions\\
+(Quadtree, NeRF, Quaternions, SO(3), SE(3))}
+\date{}
+
+\begin{document}
+\maketitle
+
+% -------------------------------------------------------
+\section*{Quadtree}
+
+\subsection*{Q1}
+In the domain $[0,1]\times[0,1]$ with finest cell size $[1/4, 1/4]$, insert the
+following three points:
+\[
+  \{(0.1,\,0.1),\;(0.15,\,0.12),\;(0.9,\,0.8)\}.
+\]
+Draw the resulting quadtree. Compared with the exam problem (finest cell
+$[1/8,1/8]$), why is the splitting depth different?
+
+\begin{answerbox}
+The first split divides $[0,1]^2$ into four $[1/2,1/2]$ cells.
+$(0.1,0.1)$ and $(0.15,0.12)$ both fall in the lower-left quadrant; $(0.9,0.8)$
+falls in the upper-right quadrant (one point only, so it never splits further).
+
+The lower-left quadrant contains two points, so it splits again into four
+$[1/4,1/4]$ cells.  At this resolution the two points land in different cells,
+so splitting stops --- the finest cell size $[1/4,1/4]$ is already reached.
+
+The depth is shallower than the exam problem because the coarser resolution is
+sufficient to separate the two nearby points.
+\end{answerbox}
+
+% -------------------------------------------------------
+\subsection*{Q2}
+Using the original exam points
+\[
+  \{(0.52,\,0.75),\;(0.11,\,0.97),\;(0.1,\,0.98)\},
+\]
+change the finest cell size from $[1/8,1/8]$ to $[1/16,1/16]$.
+Which nodes split further, and which do not?
+
+\begin{answerbox}
+$(0.52,0.75)$ is the only point in its cell at every resolution level, so it
+\emph{never} triggers a split regardless of the finest cell size.
+
+$(0.11,0.97)$ and $(0.1,0.98)$ are very close: $\Delta x = 0.01$,
+$\Delta y = 0.01$.  At finest cell size $[1/8,1/8] = 0.125$, both points land
+in the same minimum cell and splitting stops.  At $[1/16,1/16] = 0.0625$, they
+still land in the same cell (since $0.01 < 0.0625$), so even with the finer
+resolution the tree does \emph{not} split them into separate leaves.
+\end{answerbox}
+
+% -------------------------------------------------------
+\section*{NeRF Position Encoding}
+
+\subsection*{Q3}
+The NeRF position encoding maps a coordinate $x$ to
+\[
+  \gamma(x)=\bigl[\cos(\omega_1 x),\,\sin(\omega_1 x),\,
+                   \cos(\omega_2 x),\,\sin(\omega_2 x),\,\ldots\bigr].
+\]
+If position encoding is removed and the raw coordinates $(x,y,z)$ are fed
+directly to the network, what problem arises? Explain using the concept of
+\emph{spectral bias}.
+
+\begin{answerbox}
+Neural networks exhibit \textbf{spectral bias}: they preferentially learn
+low-frequency functions and struggle to represent high-frequency ones.
+A real scene contains sharp edges and fine textures --- high-frequency signals
+--- that require the network to assign very different colors or opacities to
+nearby 3-D locations.
+
+Without position encoding the network receives only smooth, slowly varying
+inputs, so it produces an overly blurred output regardless of its depth.
+Position encoding explicitly embeds multiple frequency components into the input,
+allowing the network to represent high-frequency scene content without requiring
+an unreasonably large number of parameters.
+\end{answerbox}
+
+% -------------------------------------------------------
+\subsection*{Q4}
+NeRF takes both position $(x,y,z)$ and viewing direction $(\theta,\phi)$ as
+inputs.
+
+\medskip
+\noindent\textbf{True or False:} Removing the viewing direction still allows
+NeRF to correctly render specular (mirror-like) reflections.
+Explain in 1--2 sentences.
+
+\begin{answerbox}
+\textbf{False.}  Specular reflection is \emph{view-dependent}: the same surface
+point appears with different brightness and color depending on the observer's
+direction (e.g.\ a highlight moves as you move).  Without the viewing direction
+input the network can only assign a single fixed color to each point, making it
+impossible to reproduce specular effects.
+\end{answerbox}
+
+% -------------------------------------------------------
+\section*{Quaternions}
+
+\subsection*{Q5}
+The unit quaternion $q=(0,\,1,\,0,\,0)$ (i.e.\ $u_0=0,\,u_1=1,\,u_2=u_3=0$)
+represents what 3-D rotation?  Describe it in axis--angle form.
+
+\begin{answerbox}
+Using the axis--angle parameterization
+$q=\bigl(\cos\tfrac{\theta}{2},\;\sin\tfrac{\theta}{2}\,\hat{n}\bigr)$:
+\[
+  u_0 = \cos\tfrac{\theta}{2} = 0
+  \;\Longrightarrow\;
+  \tfrac{\theta}{2} = 90^\circ
+  \;\Longrightarrow\;
+  \theta = 180^\circ,
+\]
+and $\hat{n}=(1,0,0)$ (the $x$-axis).
+
+Therefore $q=(0,1,0,0)$ represents a \textbf{rotation of $180^\circ$ about the
+$x$-axis}.
+\end{answerbox}
+
+% -------------------------------------------------------
+\subsection*{Q6}
+\textbf{True or False:} Quaternion multiplication is commutative, i.e.\
+$q_1\cdot q_2 = q_2\cdot q_1$.  Justify with an example.
+
+\begin{answerbox}
+\textbf{False.}  Quaternion multiplication encodes composition of 3-D rotations,
+which is not commutative.  For example, rotating $90^\circ$ about the $x$-axis
+\emph{then} $90^\circ$ about the $z$-axis yields a different final orientation
+than performing the same rotations in the reverse order.
+\end{answerbox}
+
+% -------------------------------------------------------
+\section*{SO(3)}
+
+\subsection*{Q7}
+A rotation matrix $R\in SO(3)$ has 9 scalar entries, yet $SO(3)$ is a
+3-dimensional manifold.  Which constraints reduce the 9 degrees of freedom to 3?
+
+\begin{answerbox}
+$SO(3)$ is defined by two conditions:
+\begin{enumerate}[noitemsep]
+  \item $R^\top R = I$ (orthonormality)
+  \item $\det R = +1$ (proper rotation, no reflection)
+\end{enumerate}
+The orthonormality condition $R^\top R=I$ imposes 6 independent scalar
+constraints:
+\begin{itemize}[noitemsep]
+  \item Each of the 3 columns has unit norm: 3 constraints.
+  \item Every pair of distinct columns is orthogonal: 3 constraints.
+\end{itemize}
+The determinant condition is then automatically satisfied (it rules out
+$\det R=-1$) and does not add a further independent constraint.
+
+Degrees of freedom: $9 - 6 = \mathbf{3}$.
+\end{answerbox}
+
+% -------------------------------------------------------
+\section*{SE(3)}
+
+\subsection*{Q8}
+A robot starts at the origin.  It executes two steps (rotations and translations
+measured in the \emph{body} frame):
+\begin{align*}
+  g_1 &= (R_1,\,t_1),\quad
+        R_1 = \text{rotation of }90^\circ\text{ about }z\text{-axis},\quad
+        t_1 = (1,0,0)^\top,\\
+  g_2 &= (R_2,\,t_2),\quad R_2 = I,\quad t_2 = (1,0,0)^\top.
+\end{align*}
+Compute $g_2\circ g_1$ and find the robot's position in the world frame.
+
+\begin{answerbox}
+Using the composition rule $g_2\circ g_1=(R_2 R_1,\;R_2 t_1+t_2)$:
+
+\textbf{Rotation:}
+\[
+  R_2 R_1 = I\cdot R_1 = R_1
+  = \begin{pmatrix}0&-1&0\\1&0&0\\0&0&1\end{pmatrix}.
+\]
+
+\textbf{Translation:}
+\[
+  R_2 t_1 + t_2 = I\begin{pmatrix}1\\0\\0\end{pmatrix}
+                 + \begin{pmatrix}1\\0\\0\end{pmatrix}
+                 = \begin{pmatrix}2\\0\\0\end{pmatrix}.
+\]
+
+The robot is at world-frame position $\mathbf{(2,\,0,\,0)}$, facing the
+direction given by $R_1$ (i.e.\ rotated $90^\circ$ about $z$).
+\end{answerbox}
+
+% -------------------------------------------------------
+\subsection*{Q9}
+\textbf{True or False:} Composition in SE(3) is commutative, i.e.\
+$g_1\circ g_2 = g_2\circ g_1$.
+
+\begin{answerbox}
+\textbf{False.}  SE(3) inherits the non-commutativity of SO(3): because
+rotations do not commute, the translation component $R_2 t_1$ in $g_2\circ g_1$
+differs from $R_1 t_2$ in $g_1\circ g_2$ whenever $R_1\neq R_2$.
+\end{answerbox}
+
+% -------------------------------------------------------
+\subsection*{Q10 (Synthesis)}
+NeRF requires the camera pose of every training image.
+
+\begin{enumerate}[label=(\alph*)]
+  \item To which Lie group does a camera pose belong?
+  \item What happens during NeRF training if some camera poses contain errors?
+        Explain in 2--3 sentences.
+\end{enumerate}
+
+\begin{answerbox}
+\textbf{(a)} A camera pose encodes both a 3-D rotation and a 3-D translation,
+so it belongs to $\mathbf{SE(3)}$.
+
+\textbf{(b)} NeRF fuses information from many images by projecting the same 3-D
+point into each view.  If a pose is wrong, the projected pixel for that view
+does not correspond to the correct 3-D location, so the network receives
+contradictory color/density signals for the same point.  Unable to resolve the
+contradiction, the network averages over the conflicting evidence and produces a
+\emph{blurry} reconstruction.  This is why several methods jointly optimize
+camera poses alongside the NeRF weights (\emph{pose refinement}).
+\end{answerbox}
+
+\end{document}

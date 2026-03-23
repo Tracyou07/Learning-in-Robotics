@@ -1,0 +1,350 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{bm}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{Chapter 3 Summary}\\[0.3em]
+\large Kalman Filter and Its Variants}
+\author{ESE 650 --- Learning in Robotics}
+\date{Spring 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%============================================================
+\section{Background: Gaussian Random Variables (Section 3.1)}
+%============================================================
+
+\subsection{Covariance Matrix}
+
+For a $d$-dimensional random variable $X\in\mathbb{R}^d$:
+\begin{equation}
+  \Sigma = \mathrm{Cov}(X) = \mathrm{E}[(X-\mathrm{E}[X])(X-\mathrm{E}[X])^\top] \in \mathbb{R}^{d\times d}.
+\end{equation}
+$\Sigma$ is symmetric positive semi-definite: $\Sigma=U\Lambda U^\top$
+with $\Lambda\ge0$. Uncertainty: $\mathrm{tr}(\Sigma)=\sum_i\lambda_i(\Sigma)$.
+
+Useful trace identities: $\mathrm{tr}(AB)=\mathrm{tr}(BA)$; $\mathrm{tr}(A^\top B)=\sum_{ij}B_{ij}A_{ij}$.
+
+\subsection{Gaussian Distribution}
+
+The $d$-dimensional \textbf{Gaussian} $\mathcal{N}(\mu,\Sigma)$ has PDF:
+\begin{equation}
+  f(x) = \frac{1}{\sqrt{\det(2\pi\Sigma)}}
+  \exp\!\left\{-\tfrac{1}{2}(x-\mu)^\top\Sigma^{-1}(x-\mu)\right\}.
+\end{equation}
+
+\textbf{Linear transform}: if $X\sim\mathcal{N}(\mu_X,\Sigma_X)$ and
+$Y=AX$ (deterministic $A$), then
+\begin{equation}
+  Y\sim\mathcal{N}(A\mu_X,\; A\Sigma_X A^\top).
+  \label{eq:gaussian_linear}
+\end{equation}
+This result is fundamental to both the KF and EKF.
+
+%============================================================
+\section{Linear State Estimation (Section 3.2)}
+%============================================================
+
+\subsection{Optimally Combining Two Estimators}
+
+Given two unbiased estimators $\hat{X}_1\sim\mathcal{N}(X,\Sigma_1)$
+and $\hat{X}_2\sim\mathcal{N}(X,\Sigma_2)$, combine linearly:
+$\hat{X}=K_1\hat{X}_1+K_2\hat{X}_2$.
+Unbiasedness requires $K_1+K_2=I$.
+Minimising $\mathrm{tr}(\Sigma_{\hat{X}})$ gives:
+\begin{equation}
+  \hat{X} = \Sigma_2(\Sigma_1+\Sigma_2)^{-1}\hat{X}_1
+           + \Sigma_1(\Sigma_1+\Sigma_2)^{-1}\hat{X}_2.
+  \label{eq:opt_combine}
+\end{equation}
+
+\textbf{Key insight:} combining two estimators always yields a better
+(lower variance) estimator; combining never hurts.
+
+\subsection{Incorporating a Gaussian Observation}
+
+Given prior estimate $\hat{X}'$ and linear observation
+$Y=CX+\nu$, $\nu\sim\mathcal{N}(0,Q)$, the updated estimator is:
+\begin{equation}
+  \hat{X} = \hat{X}' + K(Y - C\hat{X}'),
+  \label{eq:update}
+\end{equation}
+where $Y-C\hat{X}'$ is called the \textbf{innovation}. The optimal
+gain (\textbf{Kalman gain}) that minimises $\mathrm{tr}(\Sigma_{\hat{X}})$:
+\begin{equation}
+  \boxed{K = \Sigma_{\hat{X}'} C^\top (C\Sigma_{\hat{X}'} C^\top + Q)^{-1}.}
+  \label{eq:Kgain}
+\end{equation}
+
+The updated covariance:
+\begin{align}
+  \Sigma_{\hat{X}} &= (I-KC)\Sigma_{\hat{X}'}(I-KC)^\top + KQK^\top
+  \quad\text{(Joseph's form, numerically stable)} \notag\\
+  &= \left(\Sigma_{\hat{X}'}^{-1} + C^\top Q^{-1}C\right)^{-1}.
+  \label{eq:Sigma_update}
+\end{align}
+
+%============================================================
+\section{Dynamical Systems (Section 3.3)}
+%============================================================
+
+\subsection{Linear Time-Invariant (LTI) Systems}
+
+Continuous-time state-space model:
+\begin{equation}
+  \dot{x}(t) = Ax(t) + Bu(t), \qquad y(t) = Cx(t) + Du(t).
+  \label{eq:LTI_ct}
+\end{equation}
+
+Discrete-time version:
+\begin{equation}
+  x_{k+1} = A_{\Delta t} x_k + B_{\Delta t} u_k, \qquad y_k = Cx_k + Du_k.
+  \label{eq:LTI_dt}
+\end{equation}
+
+\subsection{Nonlinear Systems}
+
+\begin{equation}
+  x_{k+1} = f(x_k,u_k) + \epsilon_k, \qquad y_k = g(x_k,u_k) + \nu_k.
+  \label{eq:nonlinear}
+\end{equation}
+
+\subsection{Markov Decision Processes (MDPs)}
+
+An MDP models systems where the dynamics $f(x_k,u_k)$ is not precisely
+known. The state evolves stochastically:
+\begin{equation}
+  x_{k+1} \sim \mathrm{P}(x_{k+1}\mid x_k, u_k), \qquad
+  x_{k+1} = Ax_k + Bu_k + \epsilon_k \quad\text{(linear stochastic)}.
+\end{equation}
+Noise $\epsilon_k$ is known in distribution, independent across timesteps,
+and is not under our control.
+
+%============================================================
+\section{Kalman Filter (Section 3.5)}
+%============================================================
+
+\subsection{System Model}
+
+Linear stochastic system with linear observations:
+\begin{equation}
+  x_{k+1} = Ax_k + Bu_k + \epsilon_k, \qquad
+  y_k = Cx_k + \nu_k,
+  \label{eq:KF_model}
+\end{equation}
+where $\epsilon_k\sim\mathcal{N}(0,R)$, $\nu_k\sim\mathcal{N}(0,Q)$ are
+independent white noise processes.
+
+\textbf{Key insight}: since all operations are linear and Gaussian, the
+filtering distribution stays Gaussian at every step:
+$\hat{x}_{k|k}\sim\mathcal{N}(\mu_{k|k},\Sigma_{k|k})$.
+
+\subsection{Step 1 --- Propagate Dynamics}
+
+Given estimate $\hat{x}_{k|k}\sim\mathcal{N}(\mu_{k|k},\Sigma_{k|k})$,
+predict the state at $k+1$ before the next observation:
+\begin{align}
+  \mu_{k+1|k} &= A\mu_{k|k} + Bu_k, \label{eq:KF_prop_mu}\\
+  \Sigma_{k+1|k} &= A\Sigma_{k|k}A^\top + R. \label{eq:KF_prop_Sigma}
+\end{align}
+
+\subsection{Step 2 --- Incorporate Observation}
+
+Upon receiving $y_{k+1}=Cx_{k+1}+\nu_{k+1}$, update using the Kalman
+gain:
+\begin{align}
+  K_{k+1} &= \Sigma_{k+1|k}\,C^\top\!\left(C\Sigma_{k+1|k}C^\top+Q\right)^{-1},
+  \label{eq:KF_gain}\\
+  \mu_{k+1|k+1} &= \mu_{k+1|k} + K_{k+1}(y_{k+1}-C\mu_{k+1|k}),
+  \label{eq:KF_update_mu}\\
+  \Sigma_{k+1|k+1} &= (I-K_{k+1}C)\,\Sigma_{k+1|k}.
+  \label{eq:KF_update_Sigma}
+\end{align}
+
+\subsection{Properties of the KF}
+
+\begin{itemize}
+  \item \textbf{Optimality}: among all estimators (linear or nonlinear),
+    the KF achieves the minimum mean-squared error for linear Gaussian
+    systems. No other method can do better.
+  \item \textbf{Best linear filter}: even for non-Gaussian noise, the KF
+    is the best \emph{linear} filter.
+  \item \textbf{Assumptions}: dynamics noise $\epsilon_k$ and observation
+    noise $\nu_k$ are white (uncorrelated in time) and mutually
+    independent.
+\end{itemize}
+
+%============================================================
+\section{Extended Kalman Filter (Section 3.6)}
+%============================================================
+
+\subsection{Linearisation of Nonlinear Functions}
+
+For a nonlinear $f:\mathbb{R}^d\to\mathbb{R}^p$ and $x\sim\mathcal{N}(\mu_x,\Sigma_x)$,
+linearise around $\mu_x$:
+\begin{equation}
+  y \approx f(\mu_x) + J(x-\mu_x), \qquad J=\left.\frac{\mathrm{d}f}{\mathrm{d}x}\right|_{x=\mu_x}.
+  \label{eq:taylor}
+\end{equation}
+This gives the first-order approximation:
+\begin{equation}
+  \mathrm{E}[y]\approx f(\mu_x), \qquad \Sigma_y\approx J\Sigma_x J^\top.
+  \label{eq:EKF_propagation}
+\end{equation}
+
+\subsection{EKF Algorithm}
+
+For the nonlinear system $x_{k+1}=f(x_k,u_k)+\epsilon_k$,
+$y_k=g(x_k)+\nu_k$:
+
+\textbf{Step 1 --- Propagate (linearise dynamics at $\mu_{k|k}$):}
+\begin{align}
+  A(\mu_{k|k}) &= \left.\frac{\partial f}{\partial x}\right|_{x=\mu_{k|k}}, \\
+  \mu_{k+1|k} &= f(\mu_{k|k}, u_k), \\
+  \Sigma_{k+1|k} &= A\Sigma_{k|k}A^\top + R.
+\end{align}
+
+\textbf{Step 2 --- Update (linearise observations at $\mu_{k+1|k}$):}
+\begin{align}
+  C(\mu_{k+1|k}) &= \left.\frac{\partial g}{\partial x}\right|_{x=\mu_{k+1|k}}, \\
+  K &= \Sigma_{k+1|k}C^\top(C\Sigma_{k+1|k}C^\top+Q)^{-1}, \\
+  \mu_{k+1|k+1} &= \mu_{k+1|k} + K\!\left(y_{k+1}-g(\mu_{k+1|k})\right), \\
+  \Sigma_{k+1|k+1} &= (I-KC)\Sigma_{k+1|k}.
+\end{align}
+
+The EKF replaces the constant matrices $A,C$ in the KF with Jacobians
+recomputed at each timestep.
+
+%============================================================
+\section{Unscented Kalman Filter (Section 3.7)}
+%============================================================
+
+\subsection{Motivation}
+
+The EKF approximates $\mathrm{P}(f(x))$ as Gaussian by linearising $f$
+around the mean. This can be inaccurate when $f$ is highly nonlinear.
+The \textbf{Unscented Transform} (UT) achieves accuracy to \emph{third
+order} vs.\ first order for linearisation, without computing Jacobians.
+
+\subsection{Unscented Transform (Section 3.7.1)}
+
+Given $x\sim\mathcal{N}(\mu,\Sigma)\in\mathbb{R}^n$, choose $2n$
+\textbf{sigma points} with equal weights $w^{(i)}=\frac{1}{2n}$:
+\begin{equation}
+  x^{(i)} = \mu + (\sqrt{n\Sigma})_i^\top, \qquad
+  x^{(n+i)} = \mu - (\sqrt{n\Sigma})_i^\top, \quad i=1,\ldots,n.
+  \label{eq:sigma_pts}
+\end{equation}
+
+Transform each sigma point: $y^{(i)}=f(x^{(i)})$.
+
+Compute the mean and covariance of the transformed distribution:
+\begin{align}
+  \mu_y &= \sum_{i=1}^{2n} w^{(i)}\,y^{(i)}, \\
+  \Sigma_y &= \sum_{i=1}^{2n} w^{(i)}\,(y^{(i)}-\mu_y)(y^{(i)}-\mu_y)^\top.
+  \label{eq:UT}
+\end{align}
+
+\subsection{UKF Algorithm (Section 3.7.3)}
+
+\textbf{Step 1 --- Propagate using UT:}
+\begin{align}
+  \mu_{k+1|k} &:= \sum_{i=1}^{2n} w^{(i)}\,f(x^{(i)},u_k), \\
+  \Sigma_{k+1|k} &:= R + \sum_{i=1}^{2n} w^{(i)}\,(f(x^{(i)},u_k)-\mu_{k+1|k})(f(x^{(i)},u_k)-\mu_{k+1|k})^\top.
+\end{align}
+
+\textbf{Step 2 --- Update using UT:} compute new sigma points for
+$\mathcal{N}(\mu_{k+1|k},\Sigma_{k+1|k})$, then:
+\begin{align}
+  \hat{y} &= \sum_{i}w^{(i)}\,g(x^{(i)}), \\
+  \Sigma_{yy} &:= Q + \sum_i w^{(i)}(g(x^{(i)})-\hat{y})(g(x^{(i)})-\hat{y})^\top, \\
+  \Sigma_{xy} &:= \sum_i w^{(i)}(x^{(i)}-\mu_{k+1|k})(g(x^{(i)})-\hat{y})^\top.
+\end{align}
+
+Kalman gain and update:
+\begin{align}
+  K^* &= \Sigma_{xy}\Sigma_{yy}^{-1}, \\
+  \mu_{k+1|k+1} &= \mu_{k+1|k} + K^*(y_{k+1}-\hat{y}), \\
+  \Sigma_{k+1|k+1} &= \Sigma_{k+1|k} - K^*\Sigma_{yy}K^{*\top}.
+\end{align}
+
+\subsection{EKF vs.\ UKF}
+
+\begin{itemize}
+  \item \textbf{EKF}: requires Jacobians, first-order accuracy,
+    simpler to implement.
+  \item \textbf{UKF}: no Jacobians, third-order accuracy in mean and
+    covariance, more involved implementation.
+  \item \textbf{Equivalence}: for linear systems, both reduce to the KF.
+  \item \textbf{Limitation}: both still approximate the filtering
+    distribution as a \emph{Gaussian}.
+\end{itemize}
+
+%============================================================
+\section{Particle Filters (Section 3.8)}
+%============================================================
+
+\subsection{Motivation}
+
+KF/EKF/UKF all maintain a Gaussian approximation. For highly nonlinear
+or non-Gaussian systems, a richer representation is needed. Particle
+filters represent the filtering distribution as a weighted sum of
+Dirac-delta functions (\textbf{particles}):
+\begin{equation}
+  p(x) \approx \sum_{i=1}^{n} w^{(i)}\,\delta_{x^{(i)}}(x).
+\end{equation}
+
+\subsection{Importance Sampling (Section 3.8.1)}
+
+To approximate a target $p(x)$ using samples from a \textbf{proposal}
+$q(x)$:
+\begin{equation}
+  x^{(i)}\sim q, \qquad w^{(i)} = \frac{p(x^{(i)})}{q(x^{(i)})}.
+\end{equation}
+A large number of particles $n$ gives a better approximation.
+
+\subsection{Resampling (Section 3.8.2)}
+
+After dynamics and observation updates, some particles accumulate very
+small weights (\textbf{particle degeneracy}). Resampling:
+\begin{itemize}
+  \item Takes weighted particles $\{w^{(i)},x^{(i)}\}_{i=1}^n$.
+  \item Outputs new particles $\{x'^{(i)}\}$ with equal weights
+    $w'^{(i)}=1/n$.
+  \item Particles with high weights are duplicated; those with low
+    weights are discarded.
+  \item Algorithm: \textbf{low-variance resampling} (roulette wheel) in
+    $O(n)$.
+\end{itemize}
+
+%============================================================
+\section{Key Equations Reference}
+%============================================================
+
+\begin{center}
+\renewcommand{\arraystretch}{1.7}
+\begin{tabular}{ll}
+\hline
+\textbf{Filter} & \textbf{Key Update Equations} \\
+\hline
+KF predict & $\mu_{k+1|k}=A\mu_{k|k}+Bu_k$;\; $\Sigma_{k+1|k}=A\Sigma_{k|k}A^\top+R$ \\
+KF update & $K=\Sigma_{k+1|k}C^\top(C\Sigma_{k+1|k}C^\top+Q)^{-1}$ \\
+          & $\mu_{k+1|k+1}=\mu_{k+1|k}+K(y_{k+1}-C\mu_{k+1|k})$ \\
+          & $\Sigma_{k+1|k+1}=(I-KC)\Sigma_{k+1|k}$ \\
+EKF       & Replace $A\to\partial f/\partial x|_{\mu_{k|k}}$, $C\to\partial g/\partial x|_{\mu_{k+1|k}}$ \\
+UKF       & Use sigma points; no Jacobians; 3rd-order accurate \\
+PF        & Importance weights $w^{(i)}=p/q$; resample to avoid degeneracy \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}

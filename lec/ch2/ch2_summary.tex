@@ -1,0 +1,242 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{bm}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{Chapter 2 Summary}\\[0.3em]
+\large Introduction to State Estimation}
+\author{ESE 650 --- Learning in Robotics}
+\date{Spring 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%============================================================
+\section{Review of Probability (Section 2.1)}
+%============================================================
+
+\subsection{Kolmogorov Axioms}
+
+An \textbf{experiment} has a \textbf{sample space} $\Omega$ and produces an
+\textbf{event} $A\subset\Omega$. A probability measure $\mathrm{P}:\mathcal{F}\to[0,1]$
+defined on a $\sigma$-algebra $\mathcal{F}$ satisfies:
+\begin{enumerate}
+  \item \textbf{Non-negativity:} $\mathrm{P}(A)\ge0$.
+  \item \textbf{Normalization:} $\mathrm{P}(\Omega)=1$.
+  \item \textbf{Additivity:} $A\cap B=\emptyset \Rightarrow \mathrm{P}(A\cup B)=\mathrm{P}(A)+\mathrm{P}(B)$.
+\end{enumerate}
+
+\subsection{Conditional Probability and Bayes Rule}
+
+\textbf{Conditional probability} ($\mathrm{P}(B)>0$):
+\begin{equation}
+  \mathrm{P}(A\mid B) = \frac{\mathrm{P}(A\cap B)}{\mathrm{P}(B)}.
+  \label{eq:cond}
+\end{equation}
+
+\textbf{Law of total probability} (partition $\{A_i\}$):
+\begin{equation}
+  \mathrm{P}(B) = \sum_i \mathrm{P}(B\mid A_i)\,\mathrm{P}(A_i).
+\end{equation}
+
+\textbf{Bayes rule} (transforms causal knowledge $\mathrm{P}(B|A_i)$ into
+diagnostic knowledge $\mathrm{P}(A_i|B)$):
+\begin{equation}
+  \mathrm{P}(A_i\mid B) = \frac{\mathrm{P}(A_i)\,\mathrm{P}(B\mid A_i)}{\sum_j \mathrm{P}(A_j)\,\mathrm{P}(B\mid A_j)}.
+  \label{eq:bayes}
+\end{equation}
+
+\textbf{Independence:} $A\perp\!\!\!\perp B$ iff $\mathrm{P}(A\cap B)=\mathrm{P}(A)\mathrm{P}(B)$.
+
+\subsection{Random Variables}
+
+A \textbf{random variable} $X:\Omega\to\mathbb{R}$ maps outcomes to real
+numbers.
+
+\begin{description}[leftmargin=2em]
+  \item[PMF] (discrete): $p_X(x)=\mathrm{P}(X=x)$; $\sum_x p_X(x)=1$.
+  \item[CDF]: $F_X(x)=\mathrm{P}(X\le x)$.
+  \item[PDF] (continuous): $f_X(x)$ such that $\mathrm{P}(a\le X\le b)=\int_a^b f_X(x)\,\mathrm{d}x$.
+\end{description}
+
+\textbf{Expectation and variance:}
+\begin{align}
+  \mathrm{E}[X] &= \sum_x x\,p_X(x) \quad\text{(or } \int xf_X(x)\,\mathrm{d}x\text{)}, \\
+  \mathrm{Var}(X) &= \mathrm{E}[(X-\mathrm{E}[X])^2] = \mathrm{E}[X^2]-(\mathrm{E}[X])^2.
+\end{align}
+Key identities: $\mathrm{E}[aX+b]=a\mathrm{E}[X]+b$; $\mathrm{Var}(aX+b)=a^2\mathrm{Var}(X)$.
+
+\textbf{Covariance} for two random variables: $\mathrm{Cov}(X,Y)=\mathrm{E}[XY]-\mathrm{E}[X]\mathrm{E}[Y]$.
+
+\textbf{Continuous Bayes rule:}
+\begin{equation}
+  f_{Y|X}(y\mid x) = \frac{f_{X|Y}(x\mid y)\,f_Y(y)}{f_X(x)}.
+\end{equation}
+
+%============================================================
+\section{Bayes Rule for Combining Evidence (Section 2.2)}
+%============================================================
+
+\subsection{Single Observation}
+
+Robot checks if a door is open ($X$) using sensor observation $Y$.
+Using Bayes rule:
+\begin{equation}
+  \mathrm{P}(\text{open}\mid Y) = \frac{\mathrm{P}(Y\mid\text{open})\,\mathrm{P}(\text{open})}{\mathrm{P}(Y)}.
+\end{equation}
+
+\textbf{Key distinction:}
+\begin{itemize}
+  \item \emph{Causal} (sensor model): $\mathrm{P}(Y\mid X)$ --- easy to calibrate in lab.
+  \item \emph{Diagnostic} (what we want): $\mathrm{P}(X\mid Y)$ --- computed via Bayes rule.
+\end{itemize}
+
+\subsection{Multiple Observations (Markov Assumption)}
+
+Assuming observations $Y_1,\ldots,Y_n$ are conditionally independent
+given the state $X$ (\textbf{Markov assumption}):
+\begin{equation}
+  \mathrm{P}(X\mid Y_1,\ldots,Y_n) = \prod_{i=1}^{n}\eta_i\,\mathrm{P}(Y_i\mid X)\,\mathrm{P}(X),
+  \label{eq:multi_obs}
+\end{equation}
+where $\eta_i^{-1}=\mathrm{P}(Y_i\mid Y_1,\ldots,Y_{i-1})$ is a
+normalisation constant.
+
+\textbf{Coherence:} the order of incorporating observations does not
+matter when the state is static.
+
+%============================================================
+\section{Markov Chains (Section 2.3)}
+%============================================================
+
+A \textbf{Markov chain} has states $\mathcal{X}=\{x^1,\ldots,x^N\}$ and
+transition matrix $T$ where
+\begin{equation}
+  T_{ij} = \mathrm{P}(X_{k+1}=x^j\mid X_k=x^i).
+\end{equation}
+
+\textbf{Markov property:} $X_{k+1}\perp\!\!\!\perp X_1,\ldots,X_{k-1}\mid X_k$.
+
+\textbf{Evolution} of the probability vector $\pi^{(k)}$:
+\begin{equation}
+  \pi^{(k+1)} = T'\pi^{(k)},
+  \label{eq:mc_evolve}
+\end{equation}
+where $T'$ denotes the transpose (Matlab convention).
+
+\textbf{Invariant distribution} $\pi^{(\infty)}=T'\pi^{(\infty)}$ is
+the right eigenvector of $T'$ for eigenvalue~1.
+
+%============================================================
+\section{Hidden Markov Models (Section 2.4)}
+%============================================================
+
+An \textbf{HMM} couples a Markov chain $X_k$ with noisy observations
+$Y_k$. The observation at time $k$ depends only on the hidden state
+$X_k$:
+\begin{equation}
+  M_{ij} = \mathrm{P}(Y_k=y^j\mid X_k=x^i), \quad \sum_j M_{ij}=1.
+\end{equation}
+
+\textbf{Five problems on HMMs:}
+\begin{enumerate}
+  \item \textbf{Filtering}: compute $\mathrm{P}(X_k\mid Y_1,\ldots,Y_k)$.
+  \item \textbf{Smoothing}: compute $\mathrm{P}(X_j\mid Y_1,\ldots,Y_k)$ for $j<k$.
+  \item \textbf{Prediction}: compute $\mathrm{P}(X_j\mid Y_1,\ldots,Y_k)$ for $j>k$.
+  \item \textbf{Decoding}: find the most likely trajectory $X_1,\ldots,X_k$.
+  \item \textbf{Likelihood}: compute $\mathrm{P}(Y_1,\ldots,Y_k)$.
+\end{enumerate}
+
+\subsection{Forward Algorithm (Section 2.4.1)}
+
+Define the \textbf{forward variable}:
+\begin{equation}
+  \alpha_k(x) = \mathrm{P}(Y_1,\ldots,Y_k,\, X_k=x).
+\end{equation}
+
+\textbf{Recursion:}
+\begin{align}
+  \alpha_1(x) &= \pi_x\, M_{x,y_1} \quad \forall x, \\
+  \alpha_{k+1}(x) &= M_{x,y_{k+1}} \sum_{x'} \alpha_k(x')\, T_{x'x}.
+\end{align}
+
+\textbf{Likelihood:} $\mathrm{P}(Y_1,\ldots,Y_k)=\sum_x\alpha_k(x)$.
+
+\subsection{Backward Algorithm (Section 2.4.2)}
+
+Define the \textbf{backward variable}:
+\begin{equation}
+  \beta_k(x) = \mathrm{P}(Y_{k+1},\ldots,Y_t\mid X_k=x).
+\end{equation}
+
+\textbf{Recursion} (run from $t$ backwards to 1):
+\begin{align}
+  \beta_t(x) &= 1 \quad\forall x, \\
+  \beta_k(x) &= \sum_{x'}\beta_{k+1}(x')\,T_{xx'}\,M_{x',y_{k+1}}.
+\end{align}
+
+\subsection{Bayes Filter (Section 2.4.3)}
+
+The \textbf{filtering} distribution is obtained from $\alpha_k$:
+\begin{equation}
+  \mathrm{P}(X_k=x\mid Y_1,\ldots,Y_k) = \eta\,\alpha_k(x), \quad
+  \eta = \left(\sum_x\alpha_k(x)\right)^{-1}.
+\end{equation}
+
+\textbf{Important:} the filter gives the state distribution given
+\emph{all} past observations, computed recursively one observation at a
+time.
+
+\subsection{Smoothing (Section 2.4.4)}
+
+\begin{equation}
+  \mathrm{P}(X_k=x\mid Y_1,\ldots,Y_t) = \frac{\beta_k(x)\,\alpha_k(x)}{\mathrm{P}(Y_1,\ldots,Y_t)}.
+  \label{eq:smoothing}
+\end{equation}
+
+Implemented by running the forward algorithm ($\alpha_k$) forward and
+the backward algorithm ($\beta_k$) backward.
+
+\subsection{Prediction (Section 2.4.5)}
+
+Run the filtering estimate $\pi_t^f$ forward $k-t$ steps:
+\begin{equation}
+  \pi_{i+1} = T'\pi_i.
+\end{equation}
+
+\subsection{Decoding: Viterbi's Algorithm (Section 2.4.6)}
+
+Find the most likely state trajectory $X_1,\ldots,X_k$ given
+$Y_1,\ldots,Y_k$. Solved efficiently by dynamic programming (Viterbi's
+algorithm) instead of argmax over filtering/smoothing marginals (which
+can yield an inconsistent trajectory).
+
+%============================================================
+\section{Key Equations Reference}
+%============================================================
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{ll}
+\hline
+\textbf{Concept} & \textbf{Formula} \\
+\hline
+Bayes rule & $\mathrm{P}(A_i|B)=\frac{\mathrm{P}(A_i)\mathrm{P}(B|A_i)}{\sum_j\mathrm{P}(A_j)\mathrm{P}(B|A_j)}$ \\
+Markov chain evolution & $\pi^{(k+1)}=T'\pi^{(k)}$ \\
+Forward variable & $\alpha_{k+1}(x)=M_{x,y_{k+1}}\sum_{x'}\alpha_k(x')T_{x'x}$ \\
+Backward variable & $\beta_k(x)=\sum_{x'}\beta_{k+1}(x')T_{xx'}M_{x',y_{k+1}}$ \\
+Bayes filter & $\mathrm{P}(X_k|Y_{1:k})=\eta\,\alpha_k(x)$ \\
+Smoothing & $\mathrm{P}(X_k|Y_{1:t})=\frac{\beta_k(x)\alpha_k(x)}{\mathrm{P}(Y_{1:t})}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}

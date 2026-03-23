@@ -1,0 +1,422 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{bm}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{Chapter 4 Summary}\\[0.3em]
+\large Rigid-Body Transforms and Mapping}
+\author{ESE 650 --- Learning in Robotics}
+\date{Spring 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%============================================================
+\section{Rigid-Body Transformations (Section 4.1)}
+%============================================================
+
+\subsection{Motivation}
+
+State estimation algorithms such as EKF require concrete motion models
+$f$ and observation models $g$. Rigid-body transforms provide the
+mathematical tool to express these models for physical robots.
+
+\subsection{2D Case}
+
+A \textbf{rotation} of the plane by angle $\theta$ is written as matrix
+multiplication
+\begin{equation}
+  R(\theta) = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix}
+  \in \mathbb{R}^{2\times 2}.
+  \label{eq:R2d}
+\end{equation}
+
+Combined rotation \emph{followed by} translation $(x_t, y_t)$ is
+captured by the \textbf{homogeneous transformation matrix}
+\begin{equation}
+  T = \begin{bmatrix} \cos\theta & -\sin\theta & x_t \\
+                      \sin\theta &  \cos\theta & y_t \\
+                      0          &  0          & 1 \end{bmatrix}
+  \in \mathbb{R}^{3\times 3},
+  \label{eq:T2d}
+\end{equation}
+which acts on homogeneous coordinates $(x,y,1)^\top$.
+
+\textbf{Key point:} $T$ encodes rotation \emph{followed by} a
+translation, not the other way around.
+
+\subsection{Lie Groups}
+
+\begin{description}[leftmargin=2em]
+  \item[Orthogonal group] $O(d) := \{O\in\mathbb{R}^{d\times d}: OO^\top = O^\top O = I\}$;
+    $\det(O)=\pm 1$.
+  \item[Special Orthogonal group (pure rotations)]
+    \begin{align}
+      \mathrm{SO}(2) &:= \{R\in\mathbb{R}^{2\times 2}: R^\top R = I,\; \det(R)=1\}, \label{eq:SO2}\\
+      \mathrm{SO}(3) &:= \{R\in\mathbb{R}^{3\times 3}: R^\top R = I,\; \det(R)=1\}. \label{eq:SO3}
+    \end{align}
+  \item[Special Euclidean group (rotation + translation)]
+    \begin{align}
+      \mathrm{SE}(2) &= \left\{\begin{bmatrix}R & v\\ 0 & 1\end{bmatrix}: R\in\mathrm{SO}(2),\; v\in\mathbb{R}^2\right\}\subset\mathbb{R}^{3\times3}, \label{eq:SE2}\\
+      \mathrm{SE}(3) &= \left\{\begin{bmatrix}R & v\\ 0 & 1\end{bmatrix}: R\in\mathrm{SO}(3),\; v\in\mathbb{R}^3\right\}\subset\mathbb{R}^{4\times4}. \label{eq:SE3}
+    \end{align}
+\end{description}
+
+\subsection{3D Transformations and Euler Angles (Section 4.1.1)}
+
+Any 3D rotation can be decomposed into three elementary rotations about
+the cardinal axes:
+\begin{align}
+  R_z(\alpha) &= \begin{bmatrix}\cos\alpha & -\sin\alpha & 0\\ \sin\alpha & \cos\alpha & 0\\ 0 & 0 & 1\end{bmatrix}
+  \quad (\text{yaw}), \\[4pt]
+  R_y(\beta)  &= \begin{bmatrix}\cos\beta & 0 & \sin\beta\\ 0 & 1 & 0\\ -\sin\beta & 0 & \cos\beta\end{bmatrix}
+  \quad (\text{pitch}), \\[4pt]
+  R_x(\gamma) &= \begin{bmatrix}1 & 0 & 0\\ 0 & \cos\gamma & -\sin\gamma\\ 0 & \sin\gamma & \cos\gamma\end{bmatrix}
+  \quad (\text{roll}).
+\end{align}
+
+The full rotation matrix is $R(\alpha,\beta,\gamma) = R_z(\alpha)R_y(\beta)R_x(\gamma)$.
+The angles $(\gamma,\beta,\alpha)$ --- roll, pitch, yaw --- are called
+\textbf{Euler angles}.
+
+\textbf{Recovering Euler angles} from an arbitrary rotation matrix $R=[r_{ij}]$:
+\begin{equation}
+  \alpha = \tan^{-1}\!\left(\frac{r_{21}}{r_{11}}\right),\quad
+  \beta  = \tan^{-1}\!\left(\frac{-r_{31}}{\sqrt{r_{32}^2+r_{33}^2}}\right),\quad
+  \gamma = \tan^{-1}\!\left(\frac{r_{32}}{r_{33}}\right).
+  \label{eq:euler_from_R}
+\end{equation}
+
+\textbf{Gimbal lock}: when $\beta=\pi/2$, yaw ($\alpha$) and roll
+($\gamma$) become indistinguishable --- a well-known degeneracy of Euler
+angles.
+
+\subsection{Rodrigues' Formula (Section 4.1.2)}
+
+A rotation about a unit axis $\omega\in\mathbb{R}^3$ by angle $\theta$
+satisfies the ODE $\dot{r}=\hat{\omega}\,r$, whose solution is
+\begin{equation}
+  R = \exp(\hat{\omega}\,\theta),
+  \label{eq:rodrigues_exp}
+\end{equation}
+which simplifies (collecting even/odd powers) to
+\begin{equation}
+  R = I + \hat{\omega}\sin\theta + (1-\cos\theta)\hat{\omega}^2,
+  \label{eq:rodrigues}
+\end{equation}
+where $\hat{\omega}$ is the skew-symmetric matrix
+\begin{equation}
+  \hat{\omega} = \begin{bmatrix}0 & -\omega_3 & \omega_2\\ \omega_3 & 0 & -\omega_1\\ -\omega_2 & \omega_1 & 0\end{bmatrix}.
+\end{equation}
+
+\textbf{Inverse}: given $R$, recover $\theta$ and $\hat{\omega}$ via
+\begin{equation}
+  \cos\theta = \frac{\mathrm{tr}(R)-1}{2}, \qquad \hat{\omega} = \frac{R-R^\top}{2\sin\theta}.
+  \label{eq:rodrigues_inv}
+\end{equation}
+
+\textbf{Rotation kinematics}: if a body rotates with angular velocity
+$\omega$ in the world frame, the rotation matrix evolves as
+\begin{equation}
+  \dot{R} = \hat{\omega}\,R \quad\text{(world frame)}, \qquad
+  \dot{R} = R\hat{\omega}' \quad\text{(body frame)},
+  \label{eq:Rdot}
+\end{equation}
+where $\omega = R\omega'$ relates world and body angular velocities.
+
+\subsection{Lie Groups, Exponential and Logarithm Maps (Section 4.1.3)}
+
+$\mathrm{SO}(3)$ is a smooth manifold (Lie group). Its tangent space at
+identity is the \textbf{Lie algebra} $\mathrm{so}(3)$ --- the space of
+skew-symmetric matrices. The maps
+\begin{equation}
+  \exp: \mathrm{so}(3) \to \mathrm{SO}(3), \qquad \log: \mathrm{SO}(3)\to\mathrm{so}(3)
+\end{equation}
+move between the linear (algebra) and the curved (group) spaces.
+For $\mathrm{SE}(3)$, with $\xi=(\omega,\delta)\in\mathrm{se}(3)$:
+\begin{equation}
+  \exp\hat{\xi} = \begin{bmatrix}\exp\hat{\omega} & J_l(\omega)\delta\\ 0 & 1\end{bmatrix},
+\end{equation}
+where $J_l$ is the left Jacobian of $\mathrm{SO}(3)$.
+
+%============================================================
+\section{Quaternions (Section 4.2)}
+%============================================================
+
+\subsection{Definition}
+
+A \textbf{quaternion} is a four-dimensional vector
+$q\equiv(u_0,\mathbf{u})=(u_0,u_1,u_2,u_3)$ satisfying
+$i^2=j^2=k^2=ijk=-1$.
+
+A \textbf{unit quaternion} ($u_0^2+u_1^2+u_2^2+u_3^2=1$) represents a
+3D rotation: by Euler's theorem, any rotation is a rotation by angle
+$\theta$ about unit axis $\omega$, encoded as
+\begin{equation}
+  u_0 = \cos(\theta/2), \qquad \mathbf{u} = \omega\sin(\theta/2).
+  \label{eq:q_axis_angle}
+\end{equation}
+
+The inverse (rotation by $-\theta$ about $-\omega$) is
+$q^{-1}=(\cos(\theta/2),-\omega\sin(\theta/2))$.
+
+\subsection{Quaternion Multiplication}
+
+\begin{equation}
+  q_1 q_2 \equiv (u_0,\mathbf{u})\cdot(v_0,\mathbf{v})
+  = (u_0 v_0 - \mathbf{u}^\top\mathbf{v},\; u_0\mathbf{v}+v_0\mathbf{u}+\mathbf{u}\times\mathbf{v}).
+\end{equation}
+
+\subsection{Rotating Points}
+
+To rotate $x\in\mathbb{R}^3$, form the pure quaternion $(0,x)$ and
+compute
+\begin{equation}
+  q\cdot(0,x)\cdot q^* = (0,\, R(q)\,x),
+  \label{eq:q_rotate}
+\end{equation}
+where $q^*=(u_0,-\mathbf{u})$ is the conjugate (= inverse for unit
+quaternions).
+
+\subsection{Rotation Kinematics}
+
+\begin{equation}
+  \dot{q} = \tfrac{1}{2}(0,\omega)\cdot q \quad\text{(world frame)}, \qquad
+  \dot{q} = \tfrac{1}{2}\,q\cdot(0,\omega') \quad\text{(body frame)}.
+  \label{eq:qdot}
+\end{equation}
+
+\subsection{Conversions}
+
+\textbf{Quaternion $\to$ rotation matrix:}
+\begin{equation}
+  R(q) = (u_0^2 - \mathbf{u}^\top\mathbf{u})I_{3} + 2u_0\mathbf{u}\mathbf{u}^\top + 2u_0\mathbf{u}^\top
+  = \begin{bmatrix}
+      2(u_0^2+u_1^2)-1 & 2(u_1u_2-u_0u_3) & 2(u_1u_3+u_0u_2)\\
+      2(u_1u_2+u_0u_3) & 2(u_0^2+u_2^2)-1 & 2(u_2u_3-u_0u_1)\\
+      2(u_1u_3-u_0u_2) & 2(u_2u_3+u_0u_1) & 2(u_0^2+u_3^2)-1
+    \end{bmatrix}.
+\end{equation}
+
+\textbf{Rotation matrix $\to$ quaternion:}
+$u_0 = \tfrac{1}{2}\sqrt{r_{11}+r_{22}+r_{33}+1}$; then (if $u_0\neq 0$)
+$u_1=(r_{32}-r_{23})/(4u_0)$, etc.
+
+%============================================================
+\section{Occupancy Grids (Section 4.3)}
+%============================================================
+
+\subsection{Motivation: Mapping}
+
+A \textbf{feature map} stores the 3D positions of salient landmarks.
+An \textbf{occupancy grid} (grid map) is a coarser representation: a
+2D/3D lattice where each cell records whether it is free or occupied.
+Grid maps are robust even when there are many objects.
+
+\subsection{Three Simplifying Assumptions}
+
+\begin{enumerate}
+  \item \textbf{Binary cells:} each cell $m_i\in\{0,1\}$ (free / occupied);
+    prior $p(m_i)=0.5$.
+  \item \textbf{Static world:} objects do not move (reasonable for walls).
+  \item \textbf{Cell independence:} $p(m)=\prod_i p(m_i)$ (Bernoulli cells).
+\end{enumerate}
+
+\subsection{Estimating the Map --- Log-Odds Filter (Section 4.3.1)}
+
+Given robot poses $x_{1:k}$ and observations $y_{1:k}$, the per-cell
+posterior factorises:
+\begin{equation}
+  \mathrm{P}(m\mid x_{1:k},y_{1:k}) = \prod_i \mathrm{P}(m_i\mid x_{1:k},y_{1:k}).
+\end{equation}
+
+Applying Bayes rule repeatedly yields the \textbf{log-odds} update:
+\begin{equation}
+  \underbrace{l(m_i\mid y_{1:k},x_{1:k})}_{\text{posterior log-odds}}
+  = \underbrace{l(m_i\mid y_k,x_k)}_{\text{sensor model}}
+  + l(m_i\mid y_{1:k-1},x_{1:k-1})
+  - l(m_i),
+  \label{eq:log_odds_update}
+\end{equation}
+where the log-odds ratio is $l(x)=\log\frac{p(x)}{1-p(x)}$ and
+$p(x)=1-\frac{1}{1+e^{l(x)}}$.
+
+This recursion is simply a \emph{sum} of log-odds terms --- very fast to
+compute.  At the end, cell $m_i$ is declared occupied iff
+$l(m_i\mid y_{1:k},x_{1:k})>0$.
+
+\textbf{Moving objects:} the prior term $l(m_i)$ (fixed at $-\log 1 = 0$
+for a uniform prior) automatically resets cells corresponding to moving
+objects over time.
+
+\subsection{Sensor Models (Section 4.3.2)}
+
+\begin{description}[leftmargin=2em]
+  \item[Sonar] Sends an ultrasonic chirp; measures time-of-flight. Low
+    resolution ($\approx 15^\circ$ field of view). Gives one distance
+    reading $z$ per ray. Along the ray:
+    \begin{itemize}
+      \item Cells before $z$: \emph{free} ($p < 0.5$).
+      \item Cell at $z$: \emph{occupied} ($p > 0.5$, spike).
+      \item Cells beyond $z$: \emph{unknown} ($p=0.5$).
+    \end{itemize}
+  \item[Radar] Uses radio waves; measures phase difference. Long range
+    ($\approx 150$\,m), noisy, detects metallic objects.
+  \item[LiDAR] Light Detection and Ranging; pulsed laser, nanosecond
+    timing. High accuracy: very narrow uncertainty spike around
+    measured distance $z$. Enables high-resolution occupancy grids
+    (e.g.\ MIT CSAIL floor map).
+\end{description}
+
+%============================================================
+\section{3D Occupancy Grids and Octrees (Section 4.4)}
+%============================================================
+
+A naive 3D grid for a $100\times100\times25$\,m space at 5\,cm
+resolution requires $\sim$2 billion cells ($\approx$8\,GB). This is
+intractable.
+
+\textbf{Octrees} solve this by \emph{adaptive resolution}: an octree
+recursively subdivides 3D space into eight octants only where needed.
+\begin{itemize}
+  \item Empty regions are collapsed into a single node (coarse
+    resolution).
+  \item Occupied regions are subdivided to the minimum resolution
+    (fine resolution).
+  \item Occupancy probabilities of leaf nodes are updated using the
+    same log-odds formula \eqref{eq:log_odds_update}.
+  \item Designed for accurate sensors (LiDAR) where noise does not
+    force unnecessary subdivision.
+  \item The OctoMap framework can store the entire Penn campus in
+    $\approx$1\,GB.
+\end{itemize}
+
+\textbf{Signed Distance Functions (SDFs):} an implicit representation
+where $\varphi(x)=\|x\|_2^2-r^2$ defines a sphere; the level set
+$\{x:\varphi(x)=0\}$ is the surface. SDFs handle topology and sharp
+corners better than voxel grids, and can be stored as polynomials or
+neural networks.
+
+%============================================================
+\section{Neural Radiance Fields --- NeRFs (Section 4.5)}
+%============================================================
+
+\subsection{Motivation}
+
+Occupancy grids encode only geometry. NeRFs additionally encode
+\emph{photometry} (colour, texture), enabling richer tasks: object
+recognition, semantic scene understanding, novel view synthesis.
+
+\subsection{Plenoptic Function}
+
+The \textbf{plenoptic function} $\varphi(x,\lambda)\in\mathbb{R}_+$
+gives the radiance (energy per unit area, solid angle, wavelength) seen
+from viewpoint $x\in\mathrm{SE}(3)$ at wavelength $\lambda$. It is a
+5-dimensional function (SE(3) with roll fixed to zero).
+
+\subsection{Volumetric Rendering (Section 4.5.1)}
+
+Treat the scene as a volume of tiny coloured particles. Along a ray
+from viewpoint $t$ in direction $\omega=\log R$:
+\begin{itemize}
+  \item $\sigma(x(s))$: volume density (probability of hitting a
+    particle per unit length).
+  \item $p(s)=\exp\!\left(-\int_0^s\sigma(u)\,\mathrm{d}u\right)$:
+    transmittance (probability ray reaches $s$ without stopping).
+  \item $c(x(s))\in\mathbb{R}^3$: colour at point $s$.
+\end{itemize}
+
+The expected pixel colour is
+\begin{equation}
+  \int_0^t p(s)\,\sigma(s)\,c(s)\,\mathrm{d}s
+  \approx \sum_{i=1}^{N} c(s_i)\,\alpha_i\prod_{j=1}^{i-1}(1-\alpha_j),
+  \label{eq:volume_render}
+\end{equation}
+where $\alpha_j = 1-e^{-\sigma(s_j)(s_{j+1}-s_j)}$ is the
+\textbf{opacity} at interval $j$.
+
+\textbf{A NeRF} is a neural network (MLP):
+\begin{equation}
+  \xi:\; \mathrm{SE}(3)\ni x \;\mapsto\; (\sigma(x),\, c(x)).
+\end{equation}
+
+\subsection{Positional Encoding}
+
+MLPs bias toward low-frequency functions, missing fine texture. The fix
+is to map inputs through Fourier features before the MLP:
+\begin{equation}
+  \varphi(x) = \bigl(\sin(2^k x_1),\sin(2^k x_2),\sin(2^k x_3),\ldots\bigr)_{k=0,\ldots,10}.
+\end{equation}
+This forces the MLP to operate in the Fourier basis, capturing
+high-frequency structure.
+
+%============================================================
+\section{SLAM with NeRFs (Section 4.6)}
+%============================================================
+
+\textbf{SLAM} (Simultaneous Localisation And Mapping) must jointly
+estimate the map $\xi$ and all camera poses $x_{1:k}\in\mathrm{SE}(3)$:
+\begin{equation}
+  \hat{\xi},\,\hat{x}_{1:k} = \operatorname*{arg\,min}_{\xi,\,x_{1:k}}
+  \ell(\xi, x_{1:k}),
+  \label{eq:slam_obj}
+\end{equation}
+where the loss is the mean-squared error between rendered and observed
+pixel intensities (with uncertainty weights $\lambda_k^{ij}$):
+\begin{equation}
+  \ell(\xi,x_{1:k}) = \frac{1}{k}\sum_{k}\frac{1}{2N^{ij}}\sum_{i,j}\lambda_k^{ij}
+  \left(\tilde{y}_k^{ij}-y_k^{ij}\right)^2 - \log\lambda_k^{ij}.
+\end{equation}
+
+\textbf{Key challenges:}
+\begin{itemize}
+  \item Enormous dataset: 30\,FPS $\times$ 4\,MP images $\Rightarrow$
+    120\,M terms/second; backprop through the NeRF MLP is expensive.
+  \item Poses $x_{1:k}$ lie on $\mathrm{SE}(3)$, requiring
+    structure-aware solvers (L-BFGS, second-order methods).
+  \item Active-selection heuristics (novelty of new images) reduce
+    redundant gradient updates on past data.
+\end{itemize}
+
+%============================================================
+\section{Local Map (Section 4.7)}
+%============================================================
+
+In practice, robots maintain \emph{two} maps:
+\begin{enumerate}
+  \item \textbf{Global map} (large occupancy grid, city-scale): used for
+    localisation by matching sensor observations.
+  \item \textbf{Local map} ($\approx 100\times100$\,m around robot):
+    tracks nearby (possibly moving) objects; used for real-time
+    collision checking and motion planning.
+\end{enumerate}
+
+%============================================================
+\section{Key Equations Reference}
+%============================================================
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{ll}
+\hline
+\textbf{Concept} & \textbf{Formula} \\
+\hline
+2D rotation matrix & $R(\theta)=\begin{bmatrix}\cos\theta&-\sin\theta\\\sin\theta&\cos\theta\end{bmatrix}$ \\
+Rodrigues' formula & $R = I+\hat\omega\sin\theta+(1-\cos\theta)\hat\omega^2$ \\
+Quaternion $\to$ rotation & $q\cdot(0,x)\cdot q^*=(0,R(q)x)$ \\
+Quaternion kinematics & $\dot q=\tfrac12(0,\omega)\cdot q$ \\
+Log-odds update & $l_k = l(m_i|y_k,x_k)+l_{k-1}-l(m_i)$ \\
+Volumetric rendering & $C=\sum_i c_i\alpha_i\prod_{j<i}(1-\alpha_j)$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}

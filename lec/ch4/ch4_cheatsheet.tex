@@ -1,0 +1,208 @@
+\documentclass[9pt,landscape]{article}
+\usepackage[margin=0.45in,top=0.3in,bottom=0.3in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{multicol}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{microtype}
+
+\setlist[itemize]{noitemsep,topsep=1pt,leftmargin=*}
+\setlist[enumerate]{noitemsep,topsep=1pt,leftmargin=*}
+
+\titleformat{\section}{\small\bfseries\color{blue!70!black}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\footnotesize\bfseries\color{red!70!black}}{}{0em}{}
+\titlespacing{\section}{0pt}{4pt}{1pt}
+\titlespacing{\subsection}{0pt}{2pt}{0pt}
+
+\setlength{\columnsep}{8pt}
+\setlength{\columnseprule}{0.3pt}
+\pagestyle{empty}
+
+\begin{document}
+\begin{center}
+  {\normalsize\bfseries ESE 650 Ch.4 Cheatsheet --- Rigid-Body Transforms, Quaternions, Mapping \& NeRF}
+\end{center}
+\vspace{-4pt}
+\begin{multicols}{3}
+
+%=============================================================
+\section{SO(3) — Rotation Matrices}
+
+$SO(3):=\{R\in\mathbb{R}^{3\times3}: R^\top R=I,\;\det R=1\}$, \textbf{3 dof}.
+
+\textbf{Properties}: $R^{-1}=R^\top$; $(R_1R_2)^{-1}=R_2^\top R_1^\top$; $\det R=1$.
+
+\textbf{Skew-symmetric matrix} (hat map $\hat\omega:\mathbb{R}^3\to\mathfrak{so}(3)$):
+\[[\omega]_\times = \hat\omega =\begin{bmatrix}0&-\omega_3&\omega_2\\\omega_3&0&-\omega_1\\-\omega_2&\omega_1&0\end{bmatrix},\quad \hat\omega v = \omega\times v\]
+Key: $\hat\omega^3 = -\hat\omega$ (so Taylor series closes).
+
+\subsection{Euler Angles (ZYX)}
+$R=R_z(\alpha)R_y(\beta)R_x(\gamma)$ \quad (yaw–pitch–roll)
+
+\textbf{Elementary rotations} ($R=R_z R_y R_x$):
+\[R_z(\alpha)=\begin{bmatrix}\cos\alpha&-\sin\alpha&0\\\sin\alpha&\cos\alpha&0\\0&0&1\end{bmatrix},\quad
+R_y(\beta)=\begin{bmatrix}\cos\beta&0&\sin\beta\\0&1&0\\-\sin\beta&0&\cos\beta\end{bmatrix}\]
+\[R_x(\gamma)=\begin{bmatrix}1&0&0\\0&\cos\gamma&-\sin\gamma\\0&\sin\gamma&\cos\gamma\end{bmatrix}\]
+
+\textbf{Recover from} $R=[r_{ij}]$:
+\[\alpha=\mathrm{atan2}(r_{21},r_{11}),\quad\gamma=\mathrm{atan2}(r_{32},r_{33})\]
+\[\beta=\mathrm{atan2}(-r_{31},\sqrt{r_{32}^2+r_{33}^2})\]
+
+\textbf{Gimbal lock}: $\beta=\pm90°$ $\Rightarrow$ yaw and roll become indistinguishable (lose 1 dof). Singularity of Euler angle parametrization.
+
+%=============================================================
+\section{Rodrigues' Formula}
+
+Rotate by angle $\theta$ about \textbf{unit} axis $\hat\omega$:
+\[\boxed{R=I+\sin\theta\,\hat\omega+(1-\cos\theta)\,\hat\omega^2}\]
+Equivalently: $R=e^{\hat\omega\theta}$ (matrix exponential).
+
+\textbf{Derivation key}: $\hat\omega^3=-\hat\omega$ $\Rightarrow$ Taylor series of $e^{\hat\omega\theta}$ splits into sin/cos terms.
+
+\textbf{Log map} (inverse): given $R$,
+\[\theta=\cos^{-1}\!\left(\frac{\mathrm{tr}(R)-1}{2}\right),\qquad \hat\omega=\frac{R-R^\top}{2\sin\theta}\]
+
+\textbf{Rotation kinematics}:
+\[\dot R=\hat\omega R\;\text{(world frame)},\qquad \dot R=R\hat\omega'\;\text{(body frame)}\]
+where $\omega=R\omega'$ converts body $\leftrightarrow$ world angular velocity.
+
+%=============================================================
+\section{Lie Groups \& Algebra}
+
+\textbf{Lie algebra} $\mathfrak{so}(3)$: skew-symmetric matrices $\cong\mathbb{R}^3$.
+
+\[\exp:\mathfrak{so}(3)\to SO(3)\quad\text{(Rodrigues)},\qquad\log:SO(3)\to\mathfrak{so}(3)\]
+
+\textbf{SE(3)} — rigid body transform:
+\[T=\begin{bmatrix}R&t\\0&1\end{bmatrix}\in SE(3),\quad T^{-1}=\begin{bmatrix}R^\top&-R^\top t\\0&1\end{bmatrix}\]
+Transform point: $p'=Rp+t$ (or $Tp$ in homogeneous coords).
+
+\textbf{Lie algebra} $\mathfrak{se}(3)$: $\xi=(\omega,\delta)\in\mathbb{R}^6$:
+\[\exp\hat\xi=\begin{bmatrix}e^{\hat\omega}&J_l(\omega)\delta\\0&1\end{bmatrix}\]
+
+%=============================================================
+\section{Quaternions}
+
+Unit quaternion $q=(u_0,\mathbf{u})$, $|q|=1$, represents rotation by $\theta$ about $\hat\omega$:
+\[\boxed{u_0=\cos\frac{\theta}{2},\quad \mathbf{u}=\hat\omega\sin\frac{\theta}{2}}\]
+
+\textbf{Inverse/conjugate}: $q^{-1}=q^*=(u_0,-\mathbf{u})$
+
+\textbf{Multiplication} (Hamilton product):
+\[q_1\otimes q_2=(u_0 v_0-\mathbf{u}^\top\mathbf{v},\;u_0\mathbf{v}+v_0\mathbf{u}+\mathbf{u}\times\mathbf{v})\]
+\textbf{Non-commutative}: $q_1\otimes q_2\ne q_2\otimes q_1$ in general. Note $q\equiv-q$.
+
+\textbf{Rotate point} $x\in\mathbb{R}^3$:
+\[q\otimes(0,x)\otimes q^*=(0,\;R(q)\,x)\]
+
+\textbf{Quaternion to rotation matrix}:
+{\footnotesize\[R(q)=\begin{bmatrix}2(u_0^2{+}u_1^2){-}1&2(u_1u_2{-}u_0u_3)&2(u_1u_3{+}u_0u_2)\\2(u_1u_2{+}u_0u_3)&2(u_0^2{+}u_2^2){-}1&2(u_2u_3{-}u_0u_1)\\2(u_1u_3{-}u_0u_2)&2(u_2u_3{+}u_0u_1)&2(u_0^2{+}u_3^2){-}1\end{bmatrix}\]}
+
+\textbf{Rotation matrix $\to$ quaternion}: given $R=[r_{ij}]$,
+\[u_0=\tfrac{1}{2}\sqrt{r_{11}+r_{22}+r_{33}+1}\]
+\[u_1=\frac{r_{32}-r_{23}}{4u_0},\quad u_2=\frac{r_{13}-r_{31}}{4u_0},\quad u_3=\frac{r_{21}-r_{12}}{4u_0}\]
+(valid when $u_0\ne0$; use alternative formulas at $\theta=180°$.)
+
+\textbf{Kinematics}:
+\[\dot q=\tfrac{1}{2}(0,\omega)\otimes q\;\text{(world)},\qquad\dot q=\tfrac{1}{2}\,q\otimes(0,\omega')\;\text{(body)}\]
+
+\textbf{Why quaternions?} No gimbal lock, compact (4 params), numerically stable, easy composition. Preferred over Euler angles for state estimation.
+
+\end{multicols}
+\newpage
+\begin{multicols}{3}
+
+%=============================================================
+\section{Occupancy Grids}
+
+\textbf{Assumptions}: binary cells $m_i\in\{0,1\}$; static world; cells independent.
+
+\subsection{Log-Odds Filter}
+Define log-odds: $l(m_i)=\log\frac{p(m_i)}{1-p(m_i)}$
+
+\textbf{Bayes update for one cell} given new obs.\ $y_k$, pose $x_k$:
+\[p(m_i\mid y_{1:k},x_{1:k})=\frac{p(y_k\mid m_i,x_k)\,p(m_i\mid y_{1:k-1},x_{1:k-1})}{p(y_k\mid x_k)}\]
+
+Taking log-odds of both sides and using the static-world assumption:
+\[\frac{p(m_i\mid y_{1:k})}{1-p(m_i\mid y_{1:k})}=\frac{p(m_i\mid y_k,x_k)}{1-p(m_i\mid y_k,x_k)}\cdot\frac{p(m_i\mid y_{1:k-1})}{1-p(m_i\mid y_{1:k-1})}\cdot\frac{1-p(m_i)}{p(m_i)}\]
+
+Taking $\log$ gives the \textbf{recursive update} (just addition!):
+\[\boxed{l_k(m_i)=\underbrace{l(m_i\mid y_k,x_k)}_{\text{sensor log-odds}}+l_{k-1}(m_i)-\underbrace{l_0(m_i)}_{\text{prior log-odds}}}\]
+
+\textbf{Recover probability}: $p=\sigma(l)=\frac{e^l}{1+e^l}$; occupied iff $l>0$.
+
+\subsection{Sensor Models}
+\textbf{Sonar/LiDAR} along ray to measured distance $z$:
+\begin{itemize}
+  \item Cells \emph{before} $z$: free ($l$ decreases)
+  \item Cell \emph{at} $z$: occupied ($l$ increases)
+  \item Cells \emph{beyond} $z$: unknown (no update)
+\end{itemize}
+LiDAR: high-accuracy narrow spike. Sonar: wider, noisier ($\approx15°$ FOV).
+
+\subsection{3D: Octrees}
+Naive 3D grid $\sim$2 billion cells (8 GB) — intractable.\\
+\textbf{Octree}: recursively subdivide only where needed.
+\begin{itemize}
+  \item Empty regions $\to$ coarse (collapsed node)
+  \item Occupied regions $\to$ fine subdivision
+  \item Same log-odds update at leaf nodes
+\end{itemize}
+\textbf{SDF} (Signed Distance Function): $\varphi(x)=$ signed distance to surface; surface $=\{x:\varphi(x)=0\}$. Implicit, handles topology changes.
+
+%=============================================================
+\section{NeRF \& SLAM}
+
+\subsection{Plenoptic Function}
+The \textbf{plenoptic function} $\varphi(x,\lambda)\in\mathbb{R}_+$ gives the radiance seen from viewpoint $x\in SE(3)$ at wavelength $\lambda$. It is a \textbf{5D function} (position 3D + viewing direction 2D, with roll fixed to zero).
+
+Captures everything a camera can observe at any pose. Too high-dimensional to store directly $\Rightarrow$ approximate with a neural network (\textbf{NeRF}).
+
+\textbf{NeRF} = neural network $\xi: SE(3)\to(\sigma(x),c(x))$\\
+$\sigma$: volume density; $c$: RGB color.
+
+\subsection{Volumetric Rendering}
+Ray from camera, sample $N$ points $s_1,\ldots,s_N$:
+\[\hat C=\sum_{i=1}^N c(s_i)\,\alpha_i\prod_{j<i}(1-\alpha_j)\]
+where $\alpha_i=1-e^{-\sigma(s_i)\delta_i}$ (opacity), $\delta_i=s_{i+1}-s_i$.\\
+$\prod_{j<i}(1-\alpha_j)$: transmittance (prob.\ ray reaches $s_i$).
+
+\textbf{Positional encoding}: map inputs through Fourier features before MLP to capture high-frequency details:
+\[\varphi(x)=\bigl(\sin(2^k x),\cos(2^k x)\bigr)_{k=0}^{L-1}\]
+
+\subsection{SLAM with NeRF}
+Joint optimization over map $\xi$ and poses $x_{1:k}\in SE(3)$:
+\[\hat\xi,\hat x_{1:k}=\arg\min_{\xi,x_{1:k}}\frac{1}{k}\sum_k\frac{1}{2N}\sum_{i,j}\lambda_k^{ij}(\tilde y_k^{ij}-y_k^{ij})^2-\log\lambda_k^{ij}\]
+Challenges: huge data (30 FPS $\times$ 4MP); poses on $SE(3)$ (need structure-aware solvers); expensive backprop through MLP.
+
+%=============================================================
+\section{Representation Comparison}
+
+\begin{tabular}{@{}p{1.5cm}p{1.4cm}p{1.2cm}p{1.5cm}@{}}
+\toprule
+\textbf{Rotation} & \textbf{Params} & \textbf{Singular} & \textbf{Use case}\\
+\midrule
+Euler angles & 3 & Yes (gimbal) & Human-readable\\
+Rot.\ matrix & 9 & No & Computation\\
+Rodrigues & 3 & At $\theta=\pi$ & Optimization\\
+Quaternion & 4 & No ($q\equiv-q$) & State estimation\\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+\begin{tabular}{@{}p{1.5cm}p{3.2cm}@{}}
+\toprule
+\textbf{Map type} & \textbf{Pros / Cons}\\
+\midrule
+Feature map & Compact; needs landmarks\\
+Occ.\ grid & Robust; memory heavy in 3D\\
+Octree & Adaptive; LiDAR-friendly\\
+SDF & Implicit; topology-flexible\\
+NeRF & Photo-realistic; slow train\\
+\bottomrule
+\end{tabular}
+
+\end{multicols}
+\end{document}

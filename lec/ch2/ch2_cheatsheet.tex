@@ -1,0 +1,204 @@
+\documentclass[9pt,landscape]{article}
+\usepackage[margin=0.45in,top=0.3in,bottom=0.3in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{multicol}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{microtype}
+
+\setlist[itemize]{noitemsep,topsep=1pt,leftmargin=*}
+\setlist[enumerate]{noitemsep,topsep=1pt,leftmargin=*}
+
+\titleformat{\section}{\small\bfseries\color{blue!70!black}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\footnotesize\bfseries\color{red!70!black}}{}{0em}{}
+\titlespacing{\section}{0pt}{4pt}{1pt}
+\titlespacing{\subsection}{0pt}{2pt}{0pt}
+
+\setlength{\columnsep}{8pt}
+\setlength{\columnseprule}{0.3pt}
+\pagestyle{empty}
+
+\begin{document}
+\begin{center}
+  {\normalsize\bfseries ESE 650 Ch.2 Cheatsheet --- Probability, Markov Chains \& HMM}
+\end{center}
+\vspace{-4pt}
+\begin{multicols}{3}
+
+%=============================================================
+\section{Probability Basics}
+
+\textbf{Bayes Rule}:
+\[\boxed{P(A_i\mid B)=\frac{P(A_i)\,P(B\mid A_i)}{\sum_j P(A_j)\,P(B\mid A_j)}}\]
+Prior $P(A_i)$ + Likelihood $P(B|A_i)$ $\to$ Posterior $P(A_i|B)$.
+
+\textbf{Total probability}: $P(B)=\sum_i P(B\mid A_i)P(A_i)$
+
+\textbf{Cond.\ independence}: $A\perp B\mid C \Leftrightarrow P(A,B\mid C)=P(A\mid C)P(B\mid C)$
+
+\subsection{Multiple Observations}
+If $Y_1,\ldots,Y_n$ are \textbf{conditionally independent} given state $X$:
+\[P(X\mid Y_{1:n})\propto P(X)\prod_{i=1}^n P(Y_i\mid X)\]
+\textbf{Sequential (online) update} --- same result regardless of order:
+\[P(X\mid Y_{1:k})\underbrace{\propto}_{\text{normalize}} P(Y_k\mid X)\cdot \underbrace{P(X\mid Y_{1:k-1})}_{\text{prev.\ posterior = new prior}}\]
+$\Rightarrow$ Each new observation refines the belief; old posterior becomes new prior.
+
+%=============================================================
+\section{Markov Chains}
+
+\textbf{Markov property}: $P(X_{k+1}\mid X_{0:k})=P(X_{k+1}\mid X_k)$
+
+\textbf{Transition matrix}: $T_{ij}=P(X_{k+1}=x^j\mid X_k=x^i)$, $\sum_j T_{ij}=1$
+
+\textbf{Distribution evolution}: $\pi^{(k+1)}=T^\top\pi^{(k)}$
+
+\textbf{Stationary dist.}: $\pi^*=T^\top\pi^*$ (eigenvector for eigenvalue 1)
+
+%=============================================================
+\section{Hidden Markov Model (HMM)}
+
+Hidden states $X_k$, observations $Y_k$. Three parameters:
+\begin{itemize}
+  \item \textbf{Initial}: $\pi_0(x)=P(X_0=x)$
+  \item \textbf{Transition}: $T_{ij}=P(X_{k+1}=x^j\mid X_k=x^i)$
+  \item \textbf{Emission}: $M_{ij}=P(Y_k=y^j\mid X_k=x^i)$
+\end{itemize}
+
+\textbf{Joint distribution}:
+\[P(X_{0:T},Y_{0:T})=P(X_0)\prod_{k=0}^{T-1}P(X_{k+1}|X_k)\prod_{k=0}^T P(Y_k|X_k)\]
+
+\subsection{5 Problems on HMMs}
+\begin{enumerate}
+  \item \textbf{Filtering}: $P(X_k\mid Y_{0:k})$ --- current state given past obs.
+  \item \textbf{Smoothing}: $P(X_k\mid Y_{0:T}),\ k<T$ --- past state given all obs.
+  \item \textbf{Prediction}: $P(X_k\mid Y_{0:j}),\ k>j$ --- future state estimate.
+  \item \textbf{Decoding (Viterbi)}: $\hat X_{0:T}=\arg\max P(X_{0:T}\mid Y_{0:T})$
+  \item \textbf{Likelihood}: $P(Y_{0:T})$ --- probability of observation sequence.
+\end{enumerate}
+
+%=============================================================
+\section{Forward Algorithm ($\alpha$)}
+
+\textbf{Variable}: $\alpha_k(x)=P(Y_{0:k},\,X_k=x)$
+
+\textbf{Init}: $\alpha_0(x)=\pi_0(x)\,M_{x,y_0}$
+
+\textbf{Recursion}:
+\[\boxed{\alpha_{k+1}(x)=M_{x,y_{k+1}}\sum_{x'}T_{x'x}\,\alpha_k(x')}\]
+\begin{enumerate}
+  \item \textbf{Predict}: $\hat\alpha_{k+1}(x)=\sum_{x'}T_{x'x}\,\alpha_k(x')$
+  \item \textbf{Update}: $\alpha_{k+1}(x)=M_{x,y_{k+1}}\,\hat\alpha_{k+1}(x)$
+\end{enumerate}
+
+\textbf{Solves problems 1 \& 5}:
+\[P(X_k\mid Y_{0:k})=\frac{\alpha_k(x)}{\sum_{x'}\alpha_k(x')}, \qquad P(Y_{0:T})=\sum_x\alpha_T(x)\]
+
+Complexity: $O(T N^2)$ vs.\ brute-force $O(T N^T)$.
+
+%=============================================================
+\section{Backward Algorithm ($\beta$)}
+
+\textbf{Variable}: $\beta_k(x)=P(Y_{k+1:T}\mid X_k=x)$
+
+\textbf{Init}: $\beta_T(x)=1\ \forall x$
+
+\textbf{Recursion} (run backward $k=T-1,\ldots,0$):
+\[\boxed{\beta_k(x)=\sum_{x'}T_{xx'}\,M_{x',y_{k+1}}\,\beta_{k+1}(x')}\]
+
+\textbf{Solves problem 2 (smoothing)} combined with $\alpha_k$:
+\[\boxed{P(X_k=x\mid Y_{0:T})=\frac{\alpha_k(x)\,\beta_k(x)}{P(Y_{0:T})}}\]
+$\alpha_k$: info from the \emph{past}; \quad $\beta_k$: info from the \emph{future}.
+
+%=============================================================
+\section{Prediction (Problem 3)}
+
+\textbf{Goal}: estimate $P(X_{k+j}\mid Y_{0:k})$ for $j>0$ --- future state given past observations only.
+
+\textbf{Method}: run the current filtering belief forward $j$ steps through the transition matrix, \emph{without} incorporating new observations:
+\[p(x_{k+j}\mid y_{0:k})=\sum_{x_{k+j-1}}P(x_{k+j}\mid x_{k+j-1})\,p(x_{k+j-1}\mid y_{0:k})\]
+
+In matrix form ($\pi_k^f$ = filtering belief at time $k$):
+\[\boxed{\pi_{k+j}^{\text{pred}}=(T^\top)^j\,\pi_k^f}\]
+
+\textbf{Key}: no $\alpha$/$\beta$ needed --- just apply transition matrix $j$ times to the filtered distribution.
+
+As $j\to\infty$: prediction converges to the \textbf{stationary distribution} $\pi^*$ (if chain is ergodic), regardless of current state.
+
+%=============================================================
+\section{Viterbi Algorithm}
+
+\textbf{Goal}: MAP sequence (Problem 4). \emph{Cannot} use argmax of smoothed marginals --- may produce transitions with $T_{ij}=0$.
+
+\textbf{Variable}: $\delta_k(x)=\max_{x_{0:k-1}}P(X_{0:k},Y_{0:k})$
+
+\textbf{Init}: $\delta_0(x)=\pi_0(x)\,M_{x,y_0}$
+
+\textbf{Recursion}:
+\[\boxed{\delta_{k+1}(x)=M_{x,y_{k+1}}\,\max_{x'}\bigl[T_{x'x}\,\delta_k(x')\bigr]}\]
+\textbf{Pointer}: $\psi_{k+1}(x)=\arg\max_{x'}\bigl[T_{x'x}\,\delta_k(x')\bigr]$
+
+\textbf{Decode}: $\hat x_T=\arg\max_x\delta_T(x)$; backtrack via $\psi$.
+
+Use \textbf{log-domain} to avoid numerical underflow.
+
+Viterbi $\equiv$ DP on the HMM trellis ($\delta_k\leftrightarrow J_k^*$).
+
+%=============================================================
+\section{Learning in HMM (Baum-Welch)}
+
+\textbf{Problem}: given observations $Y_{0:T}$, learn parameters $\theta=(\pi_0, T, M)$.\\
+Solved by \textbf{EM algorithm} (Baum-Welch = EM for HMMs).
+
+\subsection{E-step: Compute Posterior Statistics}
+Using forward-backward, define:
+
+\textbf{State occupancy} (smoothed marginal):
+\[\gamma_k(x)=P(X_k=x\mid Y_{0:T})=\frac{\alpha_k(x)\,\beta_k(x)}{P(Y_{0:T})}\]
+
+\textbf{Pairwise occupancy} (transition usage):
+\[\xi_k(x,x')=P(X_k=x,X_{k+1}=x'\mid Y_{0:T})=\frac{\alpha_k(x)\,T_{xx'}\,M_{x',y_{k+1}}\,\beta_{k+1}(x')}{P(Y_{0:T})}\]
+
+Note: $\sum_{x'}\xi_k(x,x')=\gamma_k(x)$.
+
+\subsection{M-step: Update Parameters}
+Re-estimate $\theta$ by maximizing expected log-likelihood:
+
+\[\hat\pi_0(x)=\gamma_0(x)\]
+
+\[\hat T_{xx'}=\frac{\sum_{k=0}^{T-1}\xi_k(x,x')}{\sum_{k=0}^{T-1}\gamma_k(x)}\]
+
+\[\hat M_{xy}=\frac{\sum_{k:\,y_k=y}\gamma_k(x)}{\sum_{k=0}^{T}\gamma_k(x)}\]
+
+Each M-step is a \textbf{normalized count} of expected transitions/emissions.
+
+\subsection{EM Convergence}
+\begin{itemize}
+  \item Iterate E-step $\to$ M-step until convergence.
+  \item Guaranteed to increase $\log P(Y_{0:T};\theta)$ at each iteration.
+  \item Converges to \textbf{local maximum} (not necessarily global).
+  \item Initialize $\theta$ randomly or with prior knowledge.
+\end{itemize}
+
+\textbf{Multiple sequences}: sum $\gamma_k,\xi_k$ across all sequences before M-step.
+
+%=============================================================
+\section{Algorithm Summary}
+
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Algo} & \textbf{Variable} & \textbf{Solves}\\
+\midrule
+Forward & $\alpha_k(x)=P(Y_{0:k},X_k)$ & Filtering, Likelihood\\
+Backward & $\beta_k(x)=P(Y_{k+1:T}|X_k)$ & Smoothing (with $\alpha$)\\
+Viterbi & $\delta_k(x)=\max P(X_{0:k},Y_{0:k})$ & MAP decoding\\
+Baum-Welch & $\gamma_k,\xi_k$ via Fwd-Bwd & Learn $\pi_0,T,M$\\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+All algorithms: $O(TN^2)$ time, $O(TN)$ space.
+
+\end{multicols}
+\end{document}

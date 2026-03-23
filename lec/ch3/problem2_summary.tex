@@ -1,0 +1,230 @@
+\documentclass[12pt]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+
+\geometry{margin=1in}
+
+\definecolor{answerblue}{RGB}{230, 240, 255}
+\definecolor{questiongray}{RGB}{245, 245, 245}
+
+\tcbset{
+  answerbox/.style={
+    colback=answerblue,
+    colframe=blue!40,
+    fonttitle=\bfseries,
+    title=解答,
+    rounded corners,
+    boxrule=0.5pt
+  },
+  questionbox/.style={
+    colback=questiongray,
+    colframe=gray!40,
+    rounded corners,
+    boxrule=0.5pt
+  }
+}
+
+\title{\textbf{ESE 650: Learning in Robotics}\\
+\large Problem 2 --- 卡尔曼滤波及变体 · 知识点总结}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+%------------------------------------------------------------
+\section*{Part 1: 卡尔曼滤波基础}
+%------------------------------------------------------------
+
+\subsection*{Q1 --- 标准KF方程}
+
+\begin{tcolorbox}[questionbox]
+给定线性系统：
+\begin{align*}
+  x_{k+1} &= A x_k + B u_k + \epsilon_k, \quad \epsilon_k \sim \mathcal{N}(0, R)\\
+  y_k &= C x_k + \nu_k, \quad \nu_k \sim \mathcal{N}(0, Q)
+\end{align*}
+写出KF的预测步与更新步方程，并说明KF的最优性。
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{预测步（Predict）：}
+\begin{align*}
+  \mu_{k+1|k} &= A\mu_{k|k} + Bu_k \\
+  \Sigma_{k+1|k} &= A\Sigma_{k|k}A^\top + R
+\end{align*}
+
+\textbf{更新步（Update）：}
+\begin{align*}
+  K_{k+1} &= \Sigma_{k+1|k} C^\top \left(C \Sigma_{k+1|k} C^\top + Q\right)^{-1} \\
+  \mu_{k+1|k+1} &= \mu_{k+1|k} + K_{k+1}(y_{k+1} - C\mu_{k+1|k}) \\
+  \Sigma_{k+1|k+1} &= \left(\Sigma_{k+1|k}^{-1} + C^\top Q^{-1} C\right)^{-1}
+\end{align*}
+
+\textbf{最优性：}KF 是\textbf{最优线性滤波器}，最小化估计误差协方差矩阵的迹：
+\[
+  \min\;\mathrm{tr}(\Sigma_{k|k})
+\]
+这一结论对任意系统（不限线性）均成立，即使系统是非线性的，KF仍是最优线性滤波器。
+\end{tcolorbox}
+
+\subsection*{Q2 --- 后验分布推导（静态状态）}
+
+\begin{tcolorbox}[questionbox]
+状态固定 $x \sim \mathcal{N}(0, \sigma^2)$，观测 $y_i = x + \nu_i$，$\nu_i \sim \mathcal{N}(0,1)$，独立 $n$ 次。
+
+\begin{enumerate}[label=(\alph*)]
+  \item 推导后验均值 $\mu_n$ 和方差 $\sigma_n^2$。
+  \item 若改为 $C=2$，$\mu_0 \neq 0$，结果如何变化？
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+状态不变，\textbf{无预测步}（$A=1, R=0$），只有更新步：
+
+\textbf{(a) $C=1$，$\mu_0=0$：}
+\[
+  \frac{1}{\sigma_n^2} = \frac{1}{\sigma^2} + n, \qquad
+  \mu_n = \sigma_n^2 \cdot \sum_{i=1}^n y_i
+\]
+
+\textbf{(b) $C=2$，$\mu_0 \neq 0$：}
+\begin{align*}
+  \frac{1}{\sigma_n^2} &= \frac{1}{\sigma^2} + n \cdot \frac{C^2}{Q} = \frac{1}{\sigma^2} + 4n \\[4pt]
+  \mu_n &= \sigma_n^2 \left(\frac{\mu_0}{\sigma^2} + C \sum_{i=1}^n y_i\right)
+        = \sigma_n^2 \left(\frac{\mu_0}{\sigma^2} + 2\sum_{i=1}^n y_i\right)
+\end{align*}
+
+关键对比：$C=2$ 时每次观测贡献信息量为 $4$（而非 $1$），方差下降更快；方差 $\sigma_n^2$ 与 $\mu_0$ \textbf{无关}。
+\end{tcolorbox}
+
+%------------------------------------------------------------
+\section*{Part 2: Innovation（创新序列）}
+%------------------------------------------------------------
+
+\subsection*{Q3 --- Innovation的定义与诊断}
+
+\begin{tcolorbox}[questionbox]
+\begin{enumerate}[label=(\alph*)]
+  \item 什么是Innovation？写出定义式。
+  \item 在最优KF下，Innovation序列应具有什么统计性质？
+  \item 若Innovation方差持续增大，可能的原因是什么？如何区分？
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{(a) 定义：}实际观测与预测观测之差：
+\[
+  e_k = y_k - C\mu_{k|k-1}
+\]
+
+\textbf{(b) 统计性质：}在最优KF下，Innovation序列应为\textbf{白噪声}：零均值、时间不相关、方差固定。诊断工具：自相关函数（ACF）——仅 lag$=0$ 有峰值，其余接近零。
+
+\textbf{(c) 原因区分：}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{2.5cm} p{4.5cm} p{4.5cm}}
+\toprule
+原因 & 表现 & 诊断方法 \\
+\midrule
+$R$ 设置过小 & 方差随时间单调增大 & 调大 $R$，看方差是否稳定 \\
+\addlinespace
+$C$ 不准确 & Innovation均值系统性偏离零 & 检验innovation均值是否为零 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+口诀：\textbf{$R$ 影响方差，$C$ 影响偏置。}
+\end{tcolorbox}
+
+%------------------------------------------------------------
+\section*{Part 3: EKF、UKF、粒子滤波对比}
+%------------------------------------------------------------
+
+\subsection*{Q4 --- 三种滤波器的原理与选择}
+
+\begin{tcolorbox}[questionbox]
+\begin{enumerate}[label=(\alph*)]
+  \item EKF如何处理非线性？有何局限？
+  \item UKF的核心思想是什么？sigma points数量与维度的关系？
+  \item 粒子滤波的适用场景和缺点？
+  \item 给出三种滤波器的选择策略。
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{(a) EKF：}在当前均值处做\textbf{一阶泰勒展开}：
+\[
+  F_k = \left.\frac{\partial f}{\partial x}\right|_{x=\mu_k}, \qquad
+  H_k = \left.\frac{\partial h}{\partial x}\right|_{x=\mu_{k|k-1}}
+\]
+然后用标准KF更新（$A \leftarrow F_k$，$C \leftarrow H_k$）。局限：非线性越强，线性化误差越大。
+
+\textbf{(b) UKF：}用 $2d+1$ 个 sigma points 捕捉非线性变换后的分布，无需Jacobian，精度更高（三阶精度）。Sigma points数量与维度呈\textbf{线性}关系。
+
+\textbf{(c) 粒子滤波：}用大量粒子近似任意分布，适合非高斯噪声。缺点：受维数诅咒影响，高维空间需要指数级粒子数；Resampling 只解决粒子退化，无法解决维数诅咒。
+
+\textbf{(d) 选择策略：}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{4.5cm} p{2.5cm} p{4cm}}
+\toprule
+条件 & 选择 & 原因 \\
+\midrule
+弱非线性 + Jacobian易求 & EKF & 计算最快 \\
+强非线性 或 Jacobian难求 & UKF & 精度高，无需求导 \\
+非高斯噪声 或 多峰分布 & 粒子滤波 & 最通用 \\
+高维状态空间 & 避免粒子滤波 & 维数诅咒 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{tcolorbox}
+
+\subsection*{Q5 --- 常见判断题}
+
+\begin{tcolorbox}[questionbox]
+判断下列说法是否正确：
+\begin{enumerate}[label=(\alph*)]
+  \item KF只在线性+高斯时最优。
+  \item UKF的sigma points数量随维度指数增长。
+  \item 粒子滤波的Resampling可以解决高维状态空间问题。
+  \item UKF也假设高斯噪声。
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\begin{enumerate}[label=(\alph*)]
+  \item \textcolor{red}{\textbf{False}}：KF是最优\textbf{线性}滤波器，对任意系统（包括非线性）均成立。
+  \item \textcolor{red}{\textbf{False}}：sigma points数量为 $2d+1$，是\textbf{线性}关系。
+  \item \textcolor{red}{\textbf{False}}：Resampling只解决粒子退化，无法解决维数诅咒。
+  \item \textcolor{blue}{\textbf{True}}：UKF与KF、EKF同属高斯家族，仍假设高斯噪声。
+\end{enumerate}
+\end{tcolorbox}
+
+%------------------------------------------------------------
+\section*{Part 4: 无重采样粒子滤波的使用条件}
+%------------------------------------------------------------
+
+\subsection*{Q6}
+
+\begin{tcolorbox}[questionbox]
+在什么条件下可以省去粒子滤波中的Resampling步骤？
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+可以不用Resampling的条件：
+\begin{itemize}
+  \item \textbf{低维}状态空间
+  \item 动力学混合充分：每个状态可以转移到很多其他状态
+  \item 观测似然较弥散：很多不同状态都能解释观测值
+\end{itemize}
+即粒子不会在状态空间某一区域"堆积"时，可省去重采样步骤。
+\end{tcolorbox}
+
+\end{document}

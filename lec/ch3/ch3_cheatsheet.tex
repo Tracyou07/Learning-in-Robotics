@@ -1,0 +1,160 @@
+\documentclass[9pt,landscape]{article}
+\usepackage[margin=0.45in,top=0.3in,bottom=0.3in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{multicol}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{microtype}
+
+\setlist[itemize]{noitemsep,topsep=1pt,leftmargin=*}
+\setlist[enumerate]{noitemsep,topsep=1pt,leftmargin=*}
+
+\titleformat{\section}{\small\bfseries\color{blue!70!black}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\footnotesize\bfseries\color{red!70!black}}{}{0em}{}
+\titlespacing{\section}{0pt}{4pt}{1pt}
+\titlespacing{\subsection}{0pt}{2pt}{0pt}
+
+\setlength{\columnsep}{8pt}
+\setlength{\columnseprule}{0.3pt}
+\pagestyle{empty}
+
+\begin{document}
+\begin{center}
+  {\normalsize\bfseries ESE 650 Ch.3 Cheatsheet --- Kalman Filter, EKF, UKF \& Particle Filter}
+\end{center}
+\vspace{-4pt}
+\begin{multicols}{3}
+
+%=============================================================
+\section{Gaussian Background}
+
+$X\sim\mathcal{N}(\mu,\Sigma)$: $f(x)=\frac{1}{\sqrt{\det(2\pi\Sigma)}}\exp\!\left\{-\tfrac{1}{2}(x-\mu)^\top\Sigma^{-1}(x-\mu)\right\}$
+
+\textbf{Linear transform}: $Y=AX+b \Rightarrow Y\sim\mathcal{N}(A\mu+b,\;A\Sigma A^\top)$
+
+\textbf{Conditional} (joint Gaussian $[X;Y]$):
+\[X|Y=y\;\sim\;\mathcal{N}\!\left(\mu_X+\Sigma_{XY}\Sigma_{YY}^{-1}(y-\mu_Y),\;\Sigma_{XX}-\Sigma_{XY}\Sigma_{YY}^{-1}\Sigma_{YX}\right)\]
+
+\textbf{Combining two estimates} $\hat X_1\sim\mathcal{N}(X,\Sigma_1)$, $\hat X_2\sim\mathcal{N}(X,\Sigma_2)$:
+\[\hat X = \Sigma_2(\Sigma_1+\Sigma_2)^{-1}\hat X_1+\Sigma_1(\Sigma_1+\Sigma_2)^{-1}\hat X_2\]
+Combining \emph{never hurts} --- result always has lower variance.
+
+%=============================================================
+\section{Kalman Filter (KF)}
+
+\textbf{Model} (linear, Gaussian noise):
+\[x_{k+1}=Ax_k+Bu_k+\epsilon_k,\quad \epsilon_k\sim\mathcal{N}(0,R)\]
+\[y_k=Cx_k+\nu_k,\quad \nu_k\sim\mathcal{N}(0,Q)\]
+State estimate: $\hat x_{k|k}\sim\mathcal{N}(\mu_{k|k},\Sigma_{k|k})$
+
+\subsection{Predict Step}
+\[\mu_{k+1|k}=A\mu_{k|k}+Bu_k\]
+\[\Sigma_{k+1|k}=A\Sigma_{k|k}A^\top+R\]
+
+\subsection{Update Step}
+Innovation: $\tilde y=y_{k+1}-C\mu_{k+1|k}$
+\[K=\Sigma_{k+1|k}C^\top\!\underbrace{(C\Sigma_{k+1|k}C^\top+Q)^{-1}}_{\text{innovation covariance}^{-1}}\]
+\[\mu_{k+1|k+1}=\mu_{k+1|k}+K\tilde y\]
+\[\Sigma_{k+1|k+1}=(I-KC)\Sigma_{k+1|k}\]
+
+\textbf{Optimality}: minimum MSE among \emph{all} estimators for linear-Gaussian systems. Best linear filter even for non-Gaussian noise.
+
+\textbf{Intuition}: $K$ large $\to$ trust observation; $K$ small $\to$ trust prediction. $K=0$ if $Q\to\infty$; $K=C^{-1}$ if $R\to0$.
+
+%=============================================================
+\section{Extended Kalman Filter (EKF)}
+
+\textbf{Model} (nonlinear):
+\[x_{k+1}=f(x_k,u_k)+\epsilon_k,\quad y_k=g(x_k)+\nu_k\]
+
+\textbf{Idea}: linearize $f,g$ via first-order Taylor expansion at current estimate.
+
+\subsection{Predict Step}
+Jacobian: $A_k=\left.\dfrac{\partial f}{\partial x}\right|_{\mu_{k|k}}$
+\[\mu_{k+1|k}=f(\mu_{k|k},u_k)\]
+\[\Sigma_{k+1|k}=A_k\Sigma_{k|k}A_k^\top+R\]
+
+\subsection{Update Step}
+Jacobian: $C_k=\left.\dfrac{\partial g}{\partial x}\right|_{\mu_{k+1|k}}$
+\[K=\Sigma_{k+1|k}C_k^\top(C_k\Sigma_{k+1|k}C_k^\top+Q)^{-1}\]
+\[\mu_{k+1|k+1}=\mu_{k+1|k}+K(y_{k+1}-g(\mu_{k+1|k}))\]
+\[\Sigma_{k+1|k+1}=(I-KC_k)\Sigma_{k+1|k}\]
+
+\textbf{Same structure as KF} but $A,C$ are Jacobians recomputed each step.\\
+\textbf{Limitation}: first-order accurate; can diverge if $f$ highly nonlinear.
+
+%=============================================================
+\section{Unscented Kalman Filter (UKF)}
+
+\textbf{Idea}: instead of linearizing, propagate a set of carefully chosen \textbf{sigma points} through the exact nonlinear function. No Jacobians needed; \textbf{3rd-order} accurate.
+
+\subsection{Unscented Transform}
+Given $x\sim\mathcal{N}(\mu,\Sigma)\in\mathbb{R}^n$, form $2n$ sigma points with weights $w^{(i)}=\frac{1}{2n}$:
+\[x^{(i)}=\mu+\left(\sqrt{n\Sigma}\right)_i,\quad x^{(n+i)}=\mu-\left(\sqrt{n\Sigma}\right)_i,\quad i=1,\ldots,n\]
+($(\sqrt{n\Sigma})_i$ = $i$-th column of matrix square root)
+
+Propagate: $y^{(i)}=f(x^{(i)})$. Recover statistics:
+\[\mu_y=\sum_i w^{(i)}y^{(i)},\qquad \Sigma_y=\sum_i w^{(i)}(y^{(i)}-\mu_y)(y^{(i)}-\mu_y)^\top\]
+
+\subsection{UKF Predict Step}
+\[\mu_{k+1|k}=\sum_i w^{(i)}f(x^{(i)},u_k)\]
+\[\Sigma_{k+1|k}=R+\sum_i w^{(i)}(f(x^{(i)},u_k)-\mu_{k+1|k})(\cdots)^\top\]
+
+\subsection{UKF Update Step}
+Recompute sigma points from $\mathcal{N}(\mu_{k+1|k},\Sigma_{k+1|k})$:
+\[\hat y=\sum_i w^{(i)}g(x^{(i)}),\quad \Sigma_{yy}=Q+\sum_i w^{(i)}(g(x^{(i)})-\hat y)(\cdots)^\top\]
+\[\Sigma_{xy}=\sum_i w^{(i)}(x^{(i)}-\mu_{k+1|k})(g(x^{(i)})-\hat y)^\top\]
+\[K=\Sigma_{xy}\Sigma_{yy}^{-1},\quad \mu_{k+1|k+1}=\mu_{k+1|k}+K(y_{k+1}-\hat y)\]
+\[\Sigma_{k+1|k+1}=\Sigma_{k+1|k}-K\Sigma_{yy}K^\top\]
+
+%=============================================================
+\section{Particle Filter (PF)}
+
+Represent $p(x_k\mid y_{0:k})\approx\sum_{i=1}^N w^{(i)}\delta_{x^{(i)}}(x)$.\\
+Handles \textbf{non-Gaussian}, \textbf{multimodal} distributions.
+
+\subsection{Importance Sampling}
+To sample from target $p(x)$ using proposal $q(x)$:
+\[x^{(i)}\sim q(x),\qquad \tilde w^{(i)}=\frac{p(x^{(i)})}{q(x^{(i)})},\qquad w^{(i)}=\frac{\tilde w^{(i)}}{\sum_j \tilde w^{(j)}}\]
+Common choice: $q(x_k)=p(x_k\mid x_{k-1}^{(i)})$ (dynamics prior).
+
+\subsection{Particle Filter Algorithm}
+\begin{enumerate}
+  \item \textbf{Predict}: sample $x_k^{(i)}\sim p(x_k\mid x_{k-1}^{(i)},u_{k-1})$
+  \item \textbf{Weight}: $w_k^{(i)}\propto p(y_k\mid x_k^{(i)})$; normalize
+  \item \textbf{Resample}: draw $N$ particles with replacement $\propto w_k^{(i)}$
+\end{enumerate}
+
+\textbf{Particle degeneracy}: after many steps, most weights $\to 0$. Fix: resample when $\mathrm{ESS}=\frac{1}{\sum_i(w^{(i)})^2}<N/2$.
+
+\textbf{Low-variance resampling}: $O(N)$ systematic resampling (vs.\ naive $O(N\log N)$).
+
+%=============================================================
+\section{Comparison}
+
+\begin{tabular}{@{}p{1cm}p{1.1cm}p{1.1cm}p{1.1cm}p{1.4cm}@{}}
+\toprule
+ & \textbf{KF} & \textbf{EKF} & \textbf{UKF} & \textbf{PF}\\
+\midrule
+Dynamics & Linear & Nonlinear & Nonlinear & Nonlinear\\
+Noise & Gaussian & Gaussian & Gaussian & Any\\
+Accuracy & Exact & 1st order & 3rd order & $\sim N^{1/2}$\\
+Jacobian & No & Yes & No & No\\
+Cost & $O(n^3)$ & $O(n^3)$ & $O(n^3)$ & $O(Nn^2)$\\
+Represent & Gaussian & Gaussian & Gaussian & Particles\\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+\textbf{When to use}:
+\begin{itemize}
+  \item KF: linear systems (optimal)
+  \item EKF: mildly nonlinear, Jacobian available
+  \item UKF: nonlinear, no Jacobian or better accuracy needed
+  \item PF: highly nonlinear / non-Gaussian / multimodal
+\end{itemize}
+
+\end{multicols}
+\end{document}

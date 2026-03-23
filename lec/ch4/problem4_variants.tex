@@ -1,0 +1,157 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{titlesec}
+
+\geometry{margin=1in}
+
+\tcbuselibrary{skins, breakable}
+\newtcolorbox{answerbox}{
+    colback=gray!8,
+    colframe=gray!50,
+    boxrule=0.5pt,
+    arc=4pt,
+    title=Answer,
+    fonttitle=\bfseries
+}
+
+\title{\textbf{ESE 650: Learning in Robotics}\\[0.5em]
+Problem 4 --- Variant Questions}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent
+The following three questions are variations of Problem 4 from the midterm,
+covering LiDAR point cloud accumulation and NeRF-based 3D reconstruction.
+
+\bigskip
+\hrule
+\bigskip
+
+%% -------------------------------------------------------
+%% Variant 1
+%% -------------------------------------------------------
+\section*{Variant 1 (Basic)}
+
+The original point cloud accumulation formula is
+\[
+    P = \left\{ x_i + d_i^j \,\omega_i^j \;:\; i = 1,\ldots,m,\; j = 1,\ldots,n \right\}.
+\]
+Suppose the LiDAR sensor has a systematic error: every distance measurement is
+scaled by a known factor $s > 0$, i.e., the true distance is $s \cdot d_i^j$.
+Write the corrected point cloud accumulation formula.
+
+\begin{answerbox}
+Because the error affects the distance measurement $d_i^j$ and not the sensor
+position $x_i$, we simply replace $d_i^j$ with $s \cdot d_i^j$:
+\[
+    P = \left\{ x_i + s\, d_i^j \,\omega_i^j \;:\; i = 1,\ldots,m,\; j = 1,\ldots,n \right\}.
+\]
+Note that $s$ is a \emph{multiplicative} scaling factor, not an additive offset.
+Writing $d_i^j + s$ would be physically incorrect.
+\end{answerbox}
+
+\bigskip
+\hrule
+\bigskip
+
+%% -------------------------------------------------------
+%% Variant 2
+%% -------------------------------------------------------
+\section*{Variant 2 (Intermediate)}
+
+The original method uses a NeRF to complete holes in the accumulated point cloud,
+assuming a \emph{static} scene. Now suppose the scene contains \textbf{dynamic
+objects} (e.g., moving vehicles), and the $m$ LiDAR scans are captured at
+different times.
+
+\begin{enumerate}[label=(\alph*)]
+    \item What problem arises when applying the original NeRF method directly?
+    \item Propose two approaches to address this issue---one based on
+          \emph{data preprocessing} and one based on \emph{model modification}.
+\end{enumerate}
+
+\begin{answerbox}
+\textbf{(a) Problem.}
+NeRF assumes a static scene and fits a single neural radiance field to all
+scans jointly. For a location that is occupied by a vehicle at some times and
+empty at others, the network averages the occupancy across time steps,
+learning an incorrect intermediate density---the reconstructed surface is
+neither a solid vehicle nor empty space, resulting in \emph{ghosting} or
+blurring artifacts.
+
+\medskip
+\textbf{(b) Solutions.}
+
+\textit{Data preprocessing.}
+Before training, filter out \emph{inconsistent points}: any spatial location
+that is occupied in some scans but empty in others is flagged as dynamic and
+removed. Only points that are consistently present across all time steps are
+kept and fed to NeRF.
+
+\textit{Model modification.}
+Extend NeRF with a time dimension $t$, i.e., the network takes input
+$(x, y, z, \theta, \phi, t)$. A common architecture (e.g., D-NeRF) adds a
+\emph{deformation field} $\Delta x = f(x,y,z,t)$ that maps each query point
+at time $t$ back to a canonical static space, where a standard NeRF is
+evaluated. This allows the model to represent moving objects explicitly.
+\end{answerbox}
+
+\bigskip
+\hrule
+\bigskip
+
+%% -------------------------------------------------------
+%% Variant 3
+%% -------------------------------------------------------
+\section*{Variant 3 (Open-ended Design)}
+
+Relax the assumption that ``viewpoints are rich enough.''  Suppose all $m$
+LiDAR scans are taken from \textbf{the same side} (e.g., only the left side of
+a building), so the right side has \emph{zero} point cloud coverage.
+
+\begin{enumerate}[label=(\alph*)]
+    \item Can the original NeRF-based method reliably complete the right side?
+          Explain why or why not.
+    \item Propose approaches to address this limitation without requiring
+          additional LiDAR scans from the right side (and one approach that
+          does use additional sensors).
+\end{enumerate}
+
+\begin{answerbox}
+\textbf{(a) NeRF cannot reliably complete the unseen side.}
+NeRF's hole-filling ability comes from the neural network's \emph{interpolation}
+capacity: given dense observations surrounding a small gap, it can infer the
+missing region. However, the right side requires \emph{extrapolation}---there
+are no observations at all on that side. Without any training signal,
+the network's density predictions on the right side are essentially arbitrary
+(typically near zero), and cannot be trusted.
+
+\medskip
+\textbf{(b) Solutions.}
+
+\textit{Symmetry prior (no extra sensors).}
+If the structure is approximately symmetric, mirror the left-side point cloud
+to generate pseudo-observations for the right side. Adding small random
+perturbations (noise) to the mirrored points prevents over-reliance on perfect
+symmetry. This is a form of data augmentation, but fails when the two sides
+differ structurally (e.g., an entrance only on the right).
+
+\textit{Shape completion model (no extra sensors).}
+Use a deep learning model pre-trained on large 3D shape datasets (shape
+completion networks) to infer the missing geometry from partial observations.
+These models encode learned structural priors about how objects typically look,
+enabling \emph{informed} extrapolation rather than blind guessing.
+
+\textit{Additional sensor (extra LiDAR or camera).}
+Place a second LiDAR (or RGB-D camera) on the right side to obtain direct
+observations. This is the most reliable solution, as it eliminates
+extrapolation entirely and restores the original ``rich viewpoints''
+assumption.
+\end{answerbox}
+
+\end{document}

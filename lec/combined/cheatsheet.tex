@@ -1,0 +1,297 @@
+\documentclass[8pt,landscape]{article}
+\usepackage[margin=0.4in,top=0.3in,bottom=0.3in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{multicol}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{microtype}
+
+\setlist[itemize]{noitemsep,topsep=1pt,leftmargin=*}
+\setlist[enumerate]{noitemsep,topsep=1pt,leftmargin=*}
+
+\titleformat{\section}{\small\bfseries\color{blue!70!black}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\footnotesize\bfseries\color{red!70!black}}{}{0em}{}
+\titlespacing{\section}{0pt}{3pt}{1pt}
+\titlespacing{\subsection}{0pt}{2pt}{0pt}
+
+\setlength{\columnsep}{6pt}
+\setlength{\columnseprule}{0.3pt}
+
+\pagestyle{empty}
+\small
+
+\begin{document}
+\begin{center}
+  {\normalsize\bfseries ESE 650 Cheatsheet --- Ch.2 Probability \& HMM | Ch.3 Filters | Ch.4 Geometry | Ch.5 DP \& Dijkstra}
+\end{center}
+\vspace{-4pt}
+\begin{multicols}{4}
+
+%=============================================================
+\section{Ch.2: Probability \& HMM}
+
+\subsection{Probability Basics}
+\textbf{Axioms}: $P(A)\ge0$; $P(\Omega)=1$; disjoint $A,B$: $P(A\cup B)=P(A)+P(B)$.
+
+\textbf{Bayes Rule}:
+\[ P(A|B) = \frac{P(B|A)\,P(A)}{P(B)} \]
+\textbf{Total Probability}: $P(B)=\sum_i P(B|A_i)P(A_i)$
+
+\textbf{Conditional Independence}: $X\perp Y|Z \Rightarrow P(X,Y|Z)=P(X|Z)P(Y|Z)$
+
+\subsection{Random Variables}
+\textbf{Expectation}: $\mathbb{E}[X]=\sum_x x\,p(x)$\\
+\textbf{Variance}: $\text{Var}(X)=\mathbb{E}[(X-\mu)^2]$\\
+\textbf{Covariance}: $\text{Cov}(X,Y)=\mathbb{E}[(X-\mu_X)(Y-\mu_Y)]$
+
+\subsection{Markov Chain}
+State: $x_k$. \textbf{Markov property}: $p(x_k|x_{0:k-1})=p(x_k|x_{k-1})$\\
+\textbf{Transition}: $p(x_k|x_{k-1})=T_{x_{k-1}\to x_k}$\\
+\textbf{Stationary dist.}: $\pi = T^T \pi$
+
+\subsection{Hidden Markov Model (HMM)}
+\begin{itemize}
+  \item States $x_k$ (hidden), observations $y_k$ (visible)
+  \item \textbf{Prior}: $p(x_0)$; \textbf{Transition}: $p(x_k|x_{k-1})$; \textbf{Emission}: $p(y_k|x_k)$
+  \item Joint: $p(x_{0:T},y_{0:T})=p(x_0)\prod_k p(y_k|x_k)p(x_k|x_{k-1})$
+\end{itemize}
+
+\subsection{Bayes Filter (Forward)}
+\textbf{Predict}: $p(x_k|y_{0:k-1})=\sum_{x_{k-1}}p(x_k|x_{k-1})\,p(x_{k-1}|y_{0:k-1})$
+
+\textbf{Update}: $p(x_k|y_{0:k})\propto p(y_k|x_k)\,p(x_k|y_{0:k-1})$
+
+Define $\alpha_k(x_k)=p(x_k,y_{0:k})$:
+\[\alpha_k(x_k)=p(y_k|x_k)\sum_{x_{k-1}}p(x_k|x_{k-1})\alpha_{k-1}(x_{k-1})\]
+$p(y_{0:T})=\sum_{x_T}\alpha_T(x_T)$ \quad (Forward algorithm)
+
+\subsection{Backward Algorithm}
+$\beta_k(x_k)=p(y_{k+1:T}|x_k)$; $\beta_T(x_T)=1$
+\[\beta_{k-1}(x_{k-1})=\sum_{x_k}p(y_k|x_k)p(x_k|x_{k-1})\beta_k(x_k)\]
+\textbf{Smoothing}: $p(x_k|y_{0:T})\propto\alpha_k(x_k)\beta_k(x_k)$
+
+\subsection{Viterbi (MAP Sequence)}
+Find $\hat{x}_{0:T}=\arg\max p(x_{0:T}|y_{0:T})$\\
+$\delta_k(x_k)=\max_{x_{0:k-1}}p(x_{0:k},y_{0:k})$
+\[\delta_k(x_k)=p(y_k|x_k)\max_{x_{k-1}}p(x_k|x_{k-1})\delta_{k-1}(x_{k-1})\]
+Traceback: $\psi_k(x_k)=\arg\max_{x_{k-1}}[\cdot]$
+
+%=============================================================
+\section{Ch.3: Kalman \& Particle Filters}
+
+\subsection{Gaussian}
+$\mathcal{N}(x;\mu,\Sigma)=\frac{1}{(2\pi)^{n/2}|\Sigma|^{1/2}}\exp\!\left(-\tfrac{1}{2}(x-\mu)^T\Sigma^{-1}(x-\mu)\right)$
+
+\textbf{Linear transform}: $y=Ax+b$, $x\sim\mathcal{N}(\mu,\Sigma)$ $\Rightarrow$ $y\sim\mathcal{N}(A\mu+b,\,A\Sigma A^T)$
+
+\textbf{Marginalization}: $\begin{bmatrix}x\\y\end{bmatrix}\sim\mathcal{N}\!\left(\begin{bmatrix}\mu_x\\\mu_y\end{bmatrix},\begin{bmatrix}\Sigma_{xx}&\Sigma_{xy}\\\Sigma_{yx}&\Sigma_{yy}\end{bmatrix}\right)$
+$\Rightarrow$ $x|y\sim\mathcal{N}(\mu_x+\Sigma_{xy}\Sigma_{yy}^{-1}(y-\mu_y),\;\Sigma_{xx}-\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yx})$
+
+\subsection{Kalman Filter (KF)}
+\textbf{Model}: $x_{k+1}=F_k x_k+B_k u_k+w_k$, $w_k\sim\mathcal{N}(0,Q_k)$\\
+\phantom{Model:} $y_k=H_k x_k+v_k$, $v_k\sim\mathcal{N}(0,R_k)$
+
+\textbf{Predict}:
+\begin{align*}
+\hat{x}_{k|k-1} &= F_{k-1}\hat{x}_{k-1|k-1}+B_{k-1}u_{k-1}\\
+P_{k|k-1} &= F_{k-1}P_{k-1|k-1}F_{k-1}^T + Q_{k-1}
+\end{align*}
+
+\textbf{Update} (Kalman gain $K_k$):
+\begin{align*}
+K_k &= P_{k|k-1}H_k^T(H_kP_{k|k-1}H_k^T+R_k)^{-1}\\
+\hat{x}_{k|k} &= \hat{x}_{k|k-1}+K_k(y_k-H_k\hat{x}_{k|k-1})\\
+P_{k|k} &= (I-K_kH_k)P_{k|k-1}
+\end{align*}
+
+\subsection{Extended KF (EKF)}
+\textbf{Nonlinear model}: $x_{k+1}=f(x_k,u_k)+w_k$, $y_k=h(x_k)+v_k$
+
+Linearize at current estimate:
+\[ F_k=\frac{\partial f}{\partial x}\bigg|_{\hat{x}_{k|k}},\quad H_k=\frac{\partial h}{\partial x}\bigg|_{\hat{x}_{k|k-1}} \]
+Use KF equations with $F_k,H_k$ (Jacobians), but propagate mean through nonlinear $f,h$.
+
+\subsection{Unscented KF (UKF)}
+Choose \textbf{sigma points} $\{\mathcal{X}_i\}$ to capture mean \& covariance:
+\[\mathcal{X}_0=\mu,\quad \mathcal{X}_{i}=\mu+(\sqrt{(n+\lambda)\Sigma})_i,\quad \mathcal{X}_{n+i}=\mu-(\sqrt{(n+\lambda)\Sigma})_i\]
+$\lambda=\alpha^2(n+\kappa)-n$. Weights: $W_0^m=\frac{\lambda}{n+\lambda}$, $W_i^m=W_i^c=\frac{1}{2(n+\lambda)}$.
+
+Propagate through nonlinear $f$; recover predicted mean \& cov from weighted sigma points. No Jacobians needed.
+
+\subsection{Particle Filter}
+Represent $p(x_k|y_{0:k})$ by particles $\{x_k^{(i)},w_k^{(i)}\}$.
+
+\textbf{Algorithm}:
+\begin{enumerate}
+  \item \textbf{Predict}: Sample $x_k^{(i)}\sim p(x_k|x_{k-1}^{(i)})$
+  \item \textbf{Weight}: $w_k^{(i)}\propto p(y_k|x_k^{(i)})$; normalize
+  \item \textbf{Resample}: Draw $N$ particles with replacement per weights
+\end{enumerate}
+\textbf{Importance Sampling}: use proposal $q(x)$; weight $\propto p(x)/q(x)$.\\
+Degeneracy: use \textbf{ESS}$=1/\sum (w^{(i)})^2$; resample when ESS$<N/2$.
+
+%=============================================================
+\section{Ch.4: Geometry \& Mapping}
+
+\subsection{SO(3) — Rotation Matrices}
+$R\in SO(3)$: $R^TR=I$, $\det R=1$, 3 dof.\\
+Composition: $R_{AC}=R_{AB}R_{BC}$; Inverse: $R^{-1}=R^T$.
+
+\textbf{Skew-symmetric}: $[\omega]_\times=\begin{bmatrix}0&-\omega_3&\omega_2\\\omega_3&0&-\omega_1\\-\omega_2&\omega_1&0\end{bmatrix}$, $[\omega]_\times v=\omega\times v$.
+
+\subsection{Rodrigues' Formula}
+Rotate by angle $\theta$ about unit axis $\hat{k}$:
+\[\boxed{R=I+\sin\theta\,[\hat{k}]_\times+(1-\cos\theta)\,[\hat{k}]_\times^2}\]
+Equivalently: $R=e^{\theta[\hat{k}]_\times}$ (matrix exponential).\\
+\textbf{Key}: $[\hat{k}]_\times^3=-[\hat{k}]_\times$, so Taylor series closes at 3 terms.\\
+\textbf{Log map}: $\theta=\cos^{-1}\!\left(\tfrac{\text{tr}(R)-1}{2}\right)$; $[\hat{k}]_\times=\frac{R-R^T}{2\sin\theta}$.
+
+\subsection{Euler Angles \& Gimbal Lock}
+$R=R_z(\psi)R_y(\phi)R_x(\theta)$ (ZYX order).\\
+\textbf{Gimbal lock}: when $\phi=\pm90°$, lose one dof (singularity).
+
+\subsection{Lie Group / Algebra}
+$\mathfrak{so}(3)=$ skew-symmetric matrices $\approx\mathbb{R}^3$.\\
+$\exp:\mathfrak{so}(3)\to SO(3)$, $\log:SO(3)\to\mathfrak{so}(3)$.\\
+$\text{Ad}_R\,\omega=R\omega$ (adjoint action).
+
+\subsection{SE(3) — Rigid Body}
+$T=\begin{bmatrix}R&t\\0&1\end{bmatrix}\in SE(3)$; $T^{-1}=\begin{bmatrix}R^T&-R^Tt\\0&1\end{bmatrix}$.\\
+Transform point: $p'=Rp+t$.
+
+\subsection{Quaternions}
+$q=(w,\mathbf{v})=w+ix+jy+kz$, $|q|=1$ for unit quat.\\
+\textbf{Rotation}: $q=(\cos\frac{\theta}{2},\,\sin\frac{\theta}{2}\hat{k})$.\\
+\textbf{Apply}: $p'=q\otimes(0,p)\otimes q^{-1}$; $q^{-1}=(w,-\mathbf{v})$.\\
+\textbf{Compose}: $q_1\otimes q_2$ (Hamilton product); note $q\equiv-q$.
+
+\subsection{Occupancy Grid}
+Cell probability $p_k=p(\text{occ}|y_{0:k})$.\\
+\textbf{Log-odds}: $l_k=\log\frac{p_k}{1-p_k}$; update: $l_k=l_{k-1}+\log\frac{p(y_k|\text{occ})}{p(y_k|\text{free})}-l_0$\\
+\textbf{Sonar/LiDAR model}: cells before hit $\to$ free; hit cell $\to$ occupied.\\
+\textbf{Recover prob}: $p=\frac{e^l}{1+e^l}=\sigma(l)$.
+
+\subsection{SDF, NeRF}
+\textbf{SDF}: $d(x)=$ signed distance to nearest surface; $d=0$ on surface.\\
+\textbf{NeRF}: volume radiance field; render via ray marching:
+\[C=\int_0^\infty T(t)\,\sigma(r(t))\,c(r(t),\mathbf{d})\,dt\]
+$T(t)=\exp(-\int_0^t\sigma(s)ds)$ (transmittance). Discrete:
+\[\hat{C}=\sum_i T_i(1-e^{-\sigma_i\delta_i})c_i,\quad T_i=\prod_{j<i}e^{-\sigma_j\delta_j}\]
+
+%=============================================================
+\section{Ch.5: DP \& Dijkstra}
+
+\subsection{Optimal Control Problem}
+\textbf{Dynamics}: $x_{k+1}=f_k(x_k,u_k)$, $x_k\in\mathcal{X}$, $u_k\in U$.\\
+\textbf{Total cost}:
+\[J(x_0;u_{0:T-1})=q_f(x_T)+\sum_{k=0}^{T-1}q_k(x_k,u_k)\]
+\textbf{Goal}: $u^*_{0:T-1}=\arg\min_u J(x_0;u_{0:T-1})$
+
+\subsection{Dijkstra's Algorithm}
+Find shortest path from source $s$ in weighted graph $G=(V,E)$, edge costs $\ge 0$.
+
+\textbf{Backward Dijkstra} (from goal $g$):
+\begin{enumerate}
+  \item Init: $\text{dist}(g)=0$; $\text{dist}(v)=\infty$ $\forall v\ne g$; $S=\emptyset$.
+  \item Repeat: pick $v\notin S$ with min dist; add to $S$.
+  \item For each neighbor $u$ of $v$: if $\text{dist}(u)>\text{dist}(v)+c(v,u)$:
+        \[\text{dist}(u)\leftarrow\text{dist}(v)+c(v,u);\quad \text{prev}(u)\leftarrow v\]
+  \item Until $S=V$ or goal reached.
+\end{enumerate}
+\textbf{Complexity}: $\mathcal{O}((m+n)\log n)$ with binary heap ($m$=edges, $n$=nodes).\\
+\textbf{Key}: non-negative edge weights required (Dijkstra fails with negative weights $\to$ use Bellman-Ford).
+
+\textbf{Connection to DP}: On finite graph, Dijkstra solves the DP:\\
+$J^*(v)=\min_{u:(v,u)\in E}\{c(v,u)+J^*(u)\}$ with $J^*(g)=0$.
+
+\subsection{Principle of Dynamic Programming}
+\textbf{Bellman optimality}: $u_{k:T-1}^*$ optimal $\Rightarrow$ $u_{k+1:T-1}^*$ optimal from $x_{k+1}$.
+
+\textbf{DP recursion} (backward in time):
+\[\boxed{J_k^*(x)=\min_{u_k\in U}\{q_k(x,u_k)+J_{k+1}^*(f_k(x,u_k))\}}\]
+$J_T^*(x)=q_f(x)$. Solve backward $k=T-1,\ldots,0$.
+
+\textbf{Q-factor} (action-value):
+\[Q_k^*(x,u)=q_k(x,u)+J_{k+1}^*(f_k(x,u))\]
+$J_k^*(x)=\min_u Q_k^*(x,u)$; optimal policy $\mu_k^*(x)=\arg\min_u Q_k^*(x,u)$.
+
+\textbf{Note}: Viterbi $\equiv$ DP for MAP sequence in HMM.
+
+\subsection{Stochastic DP}
+\textbf{Model}: $x_{k+1}=f_k(x_k,u_k,\epsilon_k)$, $\epsilon_k$ noise.
+
+\textbf{Stochastic DP recursion}:
+\[J_k^*(x)=\min_{u_k\in U}\mathbb{E}_\epsilon\!\left[q_k(x,u_k)+J_{k+1}^*(f_k(x,u_k,\epsilon))\right]\]
+
+\subsection{Infinite-Horizon DP \& Value Iteration}
+\textbf{Discounted cost}: $J(x_0;\pi)=\mathbb{E}\!\left[\sum_{k=0}^\infty \gamma^k q(x_k,\mu(x_k))\right]$, $\gamma\in(0,1)$.
+
+\textbf{Bellman equation}:
+\[\boxed{J^*(x)=\min_{u\in U}\mathbb{E}_\epsilon\!\left[q(x,u)+\gamma J^*(f(x,u,\epsilon))\right]}\]
+
+\textbf{Value Iteration}:
+\[J^{(i+1)}(x)=\min_{u\in U}\mathbb{E}_\epsilon\!\left[q(x,u)+\gamma J^{(i)}(f(x,u,\epsilon))\right]\]
+Converges: $\|J^{(i)}-J^*\|_\infty\le\frac{\gamma^i}{1-\gamma}\|J^{(0)}-J^*\|_\infty$.
+
+\textbf{Q-iteration}:
+\[Q^{(i+1)}(x,u)=\mathbb{E}_\epsilon\!\left[q(x,u)+\gamma\min_{u'}Q^{(i)}(f(x,u,\epsilon),u')\right]\]
+
+\subsection{Policy Evaluation \& Iteration}
+\textbf{Fixed policy $\pi$ (matrix form)}:
+\[J^\pi(x)=q^\pi(x)+\gamma\sum_{x'}T^\pi(x,x')J^\pi(x')\]
+\[\Rightarrow J^\pi=(I-\gamma T^\pi)^{-1}q^\pi\]
+$(I-\gamma T^\pi)$ invertible since $\gamma<1$ and $T^\pi$ is stochastic.
+
+\textbf{Policy Iteration}:
+\begin{enumerate}
+  \item \textbf{Evaluate}: solve $J^\pi=(I-\gamma T^\pi)^{-1}q^\pi$ (or iterate)
+  \item \textbf{Improve}: $\pi'(x)=\arg\min_u\mathbb{E}[q(x,u)+\gamma J^\pi(f(x,u,\epsilon))]$
+  \item Repeat until $\pi'=\pi$ (convergence guaranteed, finite steps).
+\end{enumerate}
+\textbf{Note}: Policy Iteration $\le$ $|U|^{|X|}$ steps; often faster than Value Iteration.
+
+\subsection{Finite vs Infinite Horizon Summary}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & Finite Horizon & Infinite Horizon\\
+\midrule
+Policy & Time-varying $\mu_k(x)$ & Stationary $\mu(x)$\\
+Solve & Backward DP & Value/Policy Iter.\\
+Discount & Not needed & $\gamma\in(0,1)$ needed\\
+Bellman & Recursion & Fixed point eq.\\
+\bottomrule
+\end{tabular}
+
+\subsection{Key Relationships}
+\begin{itemize}
+  \item Dijkstra $=$ DP on graph (backward from goal)
+  \item Viterbi $=$ DP for MAP in HMM (Ch.2)
+  \item KF $=$ optimal for linear-Gaussian DP
+  \item Q-factor $\leftrightarrow$ Q-function in RL
+\end{itemize}
+
+%=============================================================
+\section{Quick Reference Formulas}
+
+\textbf{Gaussian product}: $\mathcal{N}(\mu_1,\Sigma_1)\cdot\mathcal{N}(\mu_2,\Sigma_2)\propto\mathcal{N}(\mu^*,\Sigma^*)$\\
+$\Sigma^{*-1}=\Sigma_1^{-1}+\Sigma_2^{-1}$; $\mu^*=\Sigma^*(\Sigma_1^{-1}\mu_1+\Sigma_2^{-1}\mu_2)$
+
+\textbf{Matrix inversion lemma}:
+$(A+UCV)^{-1}=A^{-1}-A^{-1}U(C^{-1}+VA^{-1}U)^{-1}VA^{-1}$
+
+\textbf{Geometric series}: $\sum_{k=0}^\infty\gamma^k=\frac{1}{1-\gamma}$ for $|\gamma|<1$
+
+\textbf{Log-sum-exp trick}: $\log\sum_i e^{a_i}=a^*+\log\sum_i e^{a_i-a^*}$
+
+\textbf{SO(3) properties}:\\
+$\exp([\omega]_\times)=$ rotation by $\|\omega\|$ about $\hat\omega=\omega/\|\omega\|$\\
+$\text{tr}(R)=1+2\cos\theta$; $R^{-1}=R^T$; $\det R=1$
+
+\textbf{Quaternion norm}: $|q_1\otimes q_2|=|q_1||q_2|$; $q^{-1}=q^*/|q|^2$
+
+\textbf{Bellman contraction}: $\|BJ_1-BJ_2\|_\infty\le\gamma\|J_1-J_2\|_\infty$ ($B=$ Bellman operator)
+
+\end{multicols}
+\end{document}

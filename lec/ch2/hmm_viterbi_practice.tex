@@ -1,0 +1,303 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\geometry{margin=1in}
+
+\definecolor{answerblue}{RGB}{230, 240, 255}
+\definecolor{questiongray}{RGB}{245, 245, 245}
+
+\tcbset{
+  answerbox/.style={
+    colback=answerblue,
+    colframe=blue!40,
+    fonttitle=\bfseries,
+    title=Answer,
+    rounded corners,
+    boxrule=0.5pt
+  },
+  questionbox/.style={
+    colback=questiongray,
+    colframe=gray!40,
+    rounded corners,
+    boxrule=0.5pt
+  }
+}
+
+\title{\textbf{ESE 650: Learning in Robotics}\\
+\large HMM \& Viterbi --- Practice Problems}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Part 1: HMM Core Concepts (Q1--Q10)}
+
+%% Q1
+\subsection*{Q1}
+\begin{tcolorbox}[questionbox]
+\textbf{True or False:} The forward variable $\alpha_k(x) = P(X_k = x \mid Y_1, \ldots, Y_k)$,
+i.e., it is the posterior distribution over states given observations.
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{False.} The forward variable is a \emph{joint} probability, not a conditional:
+\[
+  \alpha_k(x) = P(X_k = x,\, Y_1, \ldots, Y_k).
+\]
+To obtain the filtering distribution, normalize over all states:
+\[
+  P(X_k = x \mid Y_{1:k}) = \frac{\alpha_k(x)}{\displaystyle\sum_{x'} \alpha_k(x')}.
+\]
+\end{tcolorbox}
+
+%% Q2
+\subsection*{Q2}
+\begin{tcolorbox}[questionbox]
+\textbf{True or False:} The Viterbi algorithm and the forward algorithm have the same
+time complexity, $O(T \cdot |X|^2)$.
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{True.} Both algorithms share the same recursive structure. At each of the $T$
+time steps, every pair $(x', x)$ of consecutive states must be considered, giving
+$|X|^2$ operations per step and $O(T \cdot |X|^2)$ overall. The only difference is
+that the forward algorithm uses \textbf{sum} while Viterbi uses \textbf{max}.
+\end{tcolorbox}
+
+%% Q3
+\subsection*{Q3}
+\begin{tcolorbox}[questionbox]
+\textbf{True or False:} The smoothing estimate $P(X_k \mid Y_1, \ldots, Y_T)$ always
+has lower entropy than the filtering estimate $P(X_k \mid Y_1, \ldots, Y_k)$.
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{False.} Smoothing uses additional future observations and is therefore
+\emph{generally} more certain, but not \emph{always}. If the future observations
+$Y_{k+1}, \ldots, Y_T$ carry no information about $X_k$ (e.g.\ the emission matrix
+row for every state is uniform), the two distributions are identical and their
+entropies are equal. The correct statement is:
+\[
+  H\!\left(P(X_k \mid Y_{1:T})\right) \;\leq\; H\!\left(P(X_k \mid Y_{1:k})\right).
+\]
+\end{tcolorbox}
+
+%% Q4
+\subsection*{Q4}
+\begin{tcolorbox}[questionbox]
+Standard Viterbi returns only the most likely path. What modification is needed
+to also return the \emph{probability} of that path?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{No modification is needed.} The Viterbi variable $\delta_k(x)$ already stores
+the probability of the most likely path ending in state $x$ at time $k$. After
+back-tracking to recover the optimal path $x_1^*, \ldots, x_T^*$, the probability
+is simply $\delta_T(x_T^*)$.
+\end{tcolorbox}
+
+%% Q5
+\subsection*{Q5}
+\begin{tcolorbox}[questionbox]
+Suppose row $x^*$ of the emission matrix $M$ is uniform, i.e.\
+$M_{x^*, y} = \text{const}$ for all $y$. What is the effect on (a) filtering
+and (b) Viterbi decoding?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+In both cases the observation \emph{cannot distinguish} state $x^*$ from other
+states.
+
+\begin{itemize}
+  \item \textbf{Filtering:} The likelihood term for state $x^*$ is the same
+        constant for every observation, so incoming observations never update
+        the relative probability of $x^*$. Its estimate evolves purely through
+        the transition probabilities.
+  \item \textbf{Viterbi:} The emission factor for any path passing through $x^*$
+        is constant across all time steps and observations. Whether $x^*$ appears
+        in the optimal path depends entirely on the transition probabilities, not
+        on the observations.
+\end{itemize}
+\end{tcolorbox}
+
+%% Q6
+\subsection*{Q6}
+\begin{tcolorbox}[questionbox]
+Describe how to compute the joint smoothing probability of two consecutive states:
+\[
+  P(X_k = a,\, X_{k+1} = b \mid Y_1, \ldots, Y_T).
+\]
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+Using the forward--backward decomposition:
+\[
+  P(X_k = a, X_{k+1} = b \mid Y_{1:T})
+  \;\propto\;
+  \underbrace{\alpha_k(a)}_{\text{past}}
+  \cdot
+  \underbrace{T_{ab}}_{\text{transition}}
+  \cdot
+  \underbrace{M_{b,\, y_{k+1}}}_{\text{emission}}
+  \cdot
+  \underbrace{\beta_{k+1}(b)}_{\text{future}},
+\]
+where $\beta_k(x) = P(Y_{k+1}, \ldots, Y_T \mid X_k = x)$ is the backward variable.
+Normalize by dividing by $P(Y_{1:T}) = \sum_{x} \alpha_T(x)$.
+\end{tcolorbox}
+
+%% Q7
+\subsection*{Q7}
+\begin{tcolorbox}[questionbox]
+A student claims: ``I run the forward algorithm to get $\alpha_k(x)$, then normalize
+it to obtain the filtering result $P(X_k \mid Y_1, \ldots, Y_k)$.'' Is this correct?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{True.} Since $\alpha_k(x) = P(X_k = x, Y_{1:k})$, normalizing over all
+states yields exactly the Bayes filter output:
+\[
+  P(X_k = x \mid Y_{1:k}) = \frac{\alpha_k(x)}{\sum_{x'} \alpha_k(x')}.
+\]
+\end{tcolorbox}
+
+%% Q8
+\subsection*{Q8}
+\begin{tcolorbox}[questionbox]
+\textbf{True or False:} If some observation $Y_t$ has very small emission probability
+under all states, the forward variables will suffer from numerical underflow.
+How is this addressed in practice?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{True.} The forward recursion multiplies emission probabilities at every
+step. Repeated multiplication of small values causes floating-point underflow to
+zero. The standard fix is to work in \textbf{log-space}, converting products into
+sums:
+\[
+  \log \alpha_k(x) = \log \alpha_{k-1}(x') + \log T_{x'x} + \log M_{x,\, y_k}.
+\]
+\end{tcolorbox}
+
+%% Q9
+\subsection*{Q9}
+\begin{tcolorbox}[questionbox]
+Consider an HMM with a very large state space ($|X| = 10^6$) such that storing
+the full trellis is infeasible. Can you still perform (a) filtering and
+(b) smoothing? Explain.
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\begin{itemize}
+  \item \textbf{Filtering: Yes.} The forward recursion only requires the previous
+        time step's $\alpha_{k-1}(\cdot)$ to compute $\alpha_k(\cdot)$. Memory
+        usage is $O(|X|)$; past steps can be discarded.
+  \item \textbf{Smoothing: Very difficult.} The forward--backward algorithm
+        requires $\alpha_k(x)$ and $\beta_k(x)$ at the \emph{same} time step.
+        Since $\beta$ is computed backwards, all $T$ forward vectors must be
+        stored simultaneously, requiring $O(T \cdot |X|)$ memory --- infeasible
+        for $|X| = 10^6$.
+\end{itemize}
+\end{tcolorbox}
+
+%% Q10
+\subsection*{Q10}
+\begin{tcolorbox}[questionbox]
+We sample hallucinated future observations $\hat{Y}_{k+1}, \ldots, \hat{Y}_{k+T}$
+and use them to compute a smoothing estimate of $X_k$. If we repeat this process
+infinitely many times and average the results, what does the average converge to?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+The average converges to the \textbf{standard filtering estimate}:
+\[
+  P(X_k \mid Y_{1:k})
+  = \mathbb{E}_{\hat{Y}_{k+1},\ldots,\hat{Y}_{k+T}}
+    \!\Big[P\!\left(X_k \mid Y_{1:k},\,\hat{Y}_{k+1},\ldots,\hat{Y}_{k+T}\right)\Big].
+\]
+Marginalizing over all possible hallucinated futures cancels their effect,
+regardless of how they were sampled. This also confirms (Q3) that a single
+hallucinated future does \emph{not} improve the estimate.
+\end{tcolorbox}
+
+%% ============================================================
+\newpage
+\section*{Part 2: Viterbi Deep Dive (VQ1--VQ3)}
+
+%% VQ1
+\subsection*{VQ1}
+\begin{tcolorbox}[questionbox]
+What algorithm do you obtain if you replace every $\max$ in Viterbi with $\sum$?
+What is the key difference in what each algorithm computes?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+Replacing $\max$ with $\sum$ yields the \textbf{forward algorithm}. The two
+recursions are:
+\[
+  \text{Forward:}\quad
+  \alpha_{k+1}(x) = \sum_{x'} \alpha_k(x')\, T_{x'x}\, M_{x,\, y_{k+1}},
+\]
+\[
+  \text{Viterbi:}\quad
+  \delta_{k+1}(x) = \max_{x'} \delta_k(x')\, T_{x'x}\, M_{x,\, y_{k+1}}.
+\]
+The forward algorithm \textbf{sums over all paths} to compute the marginal
+likelihood $P(Y_{1:k}, X_k = x)$, while Viterbi \textbf{retains only the best
+path} probability up to each state.
+\end{tcolorbox}
+
+%% VQ2
+\subsection*{VQ2}
+\begin{tcolorbox}[questionbox]
+Viterbi finds the path maximizing the \emph{joint} probability
+$P(X_{1:T}, Y_{1:T})$. An alternative approach picks the most likely state
+at each time step independently:
+\[
+  \hat{x}_k = \argmax_{x}\; P(X_k = x \mid Y_{1:T}).
+\]
+Do these two methods always agree?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{No.} The per-step argmax ignores transition probabilities between time
+steps, so the resulting sequence $(\hat{x}_1, \ldots, \hat{x}_T)$ may be
+\emph{globally inconsistent} --- e.g., it may contain transitions
+$\hat{x}_k \to \hat{x}_{k+1}$ with near-zero probability under the model.
+
+Viterbi enforces \textbf{global consistency} by jointly optimizing over the
+entire path. The per-step approach (obtained via forward--backward smoothing)
+is useful when per-marginal accuracy matters more than path coherence.
+\end{tcolorbox}
+
+%% VQ3
+\subsection*{VQ3}
+\begin{tcolorbox}[questionbox]
+Can Viterbi be applied directly to a \emph{continuous} state space
+(e.g., robot position $x \in \mathbb{R}^2$)? If not, what are the alternatives?
+\end{tcolorbox}
+
+\begin{tcolorbox}[answerbox]
+\textbf{No.} Viterbi requires computing $\max_{x' \in \mathcal{X}}$ at each step.
+For a continuous state space this maximization is over infinitely many values and
+cannot be enumerated.
+
+Two practical alternatives:
+\begin{itemize}
+  \item \textbf{Particle Viterbi:} Approximate the continuous space with a finite
+        set of particles. Once discretized, the standard Viterbi $\max$ can be
+        applied over the particle set.
+  \item \textbf{Kalman smoother (RTS smoother):} For linear--Gaussian systems,
+        the optimal state sequence can be computed analytically. The forward pass
+        is the Kalman filter; the backward pass is the Rauch--Tung--Striebel
+        smoother.
+\end{itemize}
+\end{tcolorbox}
+
+\end{document}

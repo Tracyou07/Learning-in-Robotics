@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 *.pyo
 .claude/
+
+# LaTeX build artifacts
+*.aux
+*.synctex.gz
+lec/**/out/
+
+# Duplicate hw directory (hw1/ and hw2/ are tracked at root)
+hw/

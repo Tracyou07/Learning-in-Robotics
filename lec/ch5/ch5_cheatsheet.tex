@@ -1,0 +1,186 @@
+\documentclass[9pt,landscape]{article}
+\usepackage[margin=0.45in,top=0.3in,bottom=0.3in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{multicol}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{algorithm2e}
+
+\setlist[itemize]{noitemsep,topsep=1pt,leftmargin=*}
+\setlist[enumerate]{noitemsep,topsep=1pt,leftmargin=*}
+
+\titleformat{\section}{\small\bfseries\color{blue!70!black}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\footnotesize\bfseries\color{red!70!black}}{}{0em}{}
+\titlespacing{\section}{0pt}{4pt}{1pt}
+\titlespacing{\subsection}{0pt}{2pt}{0pt}
+
+\setlength{\columnsep}{8pt}
+\setlength{\columnseprule}{0.3pt}
+\pagestyle{empty}
+
+\begin{document}
+\begin{center}
+  {\normalsize\bfseries ESE 650 Ch.5 Cheatsheet (5.1--5.2) --- Optimal Control \& Dijkstra}
+\end{center}
+\vspace{-4pt}
+\begin{multicols}{3}
+
+%=============================================================
+\section{5.1 Optimal Control Problem}
+
+\subsection{Setup}
+\textbf{State}: $x_k\in\mathcal{X}$, \textbf{Control}: $u_k\in U$, \textbf{Time}: $k=0,\ldots,T-1$.
+
+\textbf{Deterministic dynamics}:
+\[x_{k+1}=f_k(x_k,u_k)\]
+
+\textbf{Total cost}:
+\[\boxed{J(x_0;\,u_0,\ldots,u_{T-1})=q_f(x_T)+\sum_{k=0}^{T-1}q_k(x_k,u_k)}\]
+\begin{itemize}
+  \item $q_k(x_k,u_k)$: stage cost at time $k$
+  \item $q_f(x_T)$: terminal cost
+\end{itemize}
+
+\textbf{Goal}: find optimal control sequence
+\[u^*_{0:T-1}=\arg\min_{u_0,\ldots,u_{T-1}} J(x_0;\,u_{0:T-1})\]
+
+\subsection{As a Graph Problem}
+Unroll dynamics into a \textbf{directed acyclic graph} (DAG):
+\begin{itemize}
+  \item Nodes: $(k, x_k)$ for each time $k$ and reachable state $x_k$
+  \item Edges: $(k,x)\to(k+1,f_k(x,u))$ with edge cost $q_k(x,u)$
+  \item Source: $(0, x_0)$; Sink: $(T, \cdot)$ with terminal cost $q_f$
+\end{itemize}
+$\Rightarrow$ Optimal control $\equiv$ \textbf{shortest path} from source to sink.
+
+\subsection{Connection to HMM / Viterbi}
+Viterbi algorithm (Ch.2) solves the same structure:\\
+minimize $-\log P(X_{0:T}, Y_{0:T})$ over state sequences\\
+$\equiv$ shortest path on the HMM trellis.\\
+Both are special cases of \textbf{Dynamic Programming}.
+
+%=============================================================
+\section{5.2 Dijkstra's Algorithm}
+
+\subsection{Problem}
+Find shortest path from source $s$ (or to goal $g$) in weighted graph $G=(V,E)$ with \textbf{non-negative} edge costs $c(u,v)\ge0$.
+
+\subsection{Forward Dijkstra (from source $s$)}
+\textbf{Init}: $\mathrm{dist}(s)=0$; $\mathrm{dist}(v)=\infty\ \forall v\ne s$; visited set $S=\emptyset$.
+
+\textbf{Repeat until} $S=V$:
+\begin{enumerate}
+  \item Pick $v=\arg\min_{v\notin S}\mathrm{dist}(v)$ \quad (use min-heap)
+  \item Add $v$ to $S$
+  \item For each neighbor $u$ of $v$: \textbf{relax edge}
+  \[{\rm if}\ \mathrm{dist}(u)>\mathrm{dist}(v)+c(v,u):\]
+  \[\mathrm{dist}(u)\leftarrow\mathrm{dist}(v)+c(v,u),\quad \mathrm{prev}(u)\leftarrow v\]
+\end{enumerate}
+\textbf{Recover path}: backtrack via $\mathrm{prev}(\cdot)$ from goal to source.
+
+\subsection{Backward Dijkstra (from goal $g$)}
+Run forward Dijkstra on \textbf{reversed graph} $G^R$ starting from $g$.\\
+$\mathrm{dist}(v)=$ cost of shortest path from $v$ to $g$.
+
+Useful for optimal control: fix goal $g$, compute $J^*(v)=\mathrm{dist}(v)$ for all starting states $v$ in one pass.
+
+\subsection{Complexity}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Data structure} & \textbf{Extract-min} & \textbf{Total}\\
+\midrule
+Array (dense graph) & $O(n)$ & $O(n^2)$\\
+Binary heap & $O(\log n)$ & $O((m+n)\log n)$\\
+Fibonacci heap & $O(\log n)$ amort. & $O(m+n\log n)$\\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+$n=|V|$ nodes, $m=|E|$ edges. Standard implementation: \textbf{binary heap} $\Rightarrow O((m+n)\log n)$.
+
+\subsection{Correctness: Why Greedy Works}
+\textbf{Key invariant}: when $v$ is added to $S$, $\mathrm{dist}(v)$ is the true shortest-path distance.
+
+\textbf{Proof sketch}: all edge costs $\ge0$, so no path through unvisited nodes can be shorter than the current best known path to $v$. A shorter path through an unvisited node would require going ``backwards'' in cost, impossible with non-negative weights.
+
+\textbf{Fails with negative edges}: a later negative edge could create a shortcut not yet discovered. Use \textbf{Bellman-Ford} ($O(mn)$) instead.
+
+\subsection{Dijkstra as DP on a Graph}
+Backward Dijkstra solves the DP:
+\[\boxed{J^*(v)=\min_{u:(v,u)\in E}\{c(v,u)+J^*(u)\},\quad J^*(g)=0}\]
+This is the \textbf{Bellman equation} for the shortest-path problem.
+
+\textbf{DP table} = distance labels $\mathrm{dist}(v)$.\\
+\textbf{Optimal policy} $= \mathrm{prev}(v)$ (next hop toward goal).
+
+\subsection{Dijkstra vs.\ DP Recursion}
+\begin{tabular}{@{}p{2cm}p{3.6cm}@{}}
+\toprule
+\textbf{Dijkstra} & \textbf{DP (backward induction)}\\
+\midrule
+General graphs & DAGs / finite-horizon systems\\
+Greedy (priority queue) & Backward sweep (fixed order)\\
+$O((m+n)\log n)$ & $O(|X|^2\cdot|U|\cdot T)$\\
+Non-negative costs & Any costs\\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+\textbf{On a DAG} (e.g.\ finite-horizon control): topological order gives $O(m+n)$ --- faster than Dijkstra.
+
+\subsection{Key Conditions \& Pitfalls}
+\begin{itemize}
+  \item \textbf{Non-negative weights required} --- algorithm breaks otherwise
+  \item \textbf{Directed vs.\ undirected}: works for both; backward Dijkstra reverses edge directions
+  \item \textbf{Multiple sources}: initialize all sources with dist $=0$
+  \item \textbf{Early stopping}: terminate once goal $g$ is popped from heap (dist$(g)$ finalized)
+\end{itemize}
+
+%=============================================================
+\section{5.3 Principle of Dynamic Programming}
+
+\subsection{Bellman's Optimality Principle}
+\textbf{Principle}: if $u^*_{0:T-1}$ is optimal for the full problem starting at $x_0$, then $u^*_{k:T-1}$ is optimal for the sub-problem starting at $x_k$.
+
+$\Rightarrow$ Optimal policy is \textbf{time-consistent}: no need to re-optimize from scratch at each step.
+
+\subsection{DP Recursion (Backward in Time)}
+Define the \textbf{cost-to-go} (value function):
+\[J_k^*(x) = \min_{u_{k:T-1}} \left[ q_f(x_T) + \sum_{i=k}^{T-1} q_i(x_i, u_i) \right]\]
+
+\textbf{Terminal condition}: $J_T^*(x) = q_f(x)$
+
+\textbf{Bellman recursion} (solve backward $k = T{-}1, \ldots, 0$):
+\[\boxed{J_k^*(x) = \min_{u \in U} \left\{ q_k(x, u) + J_{k+1}^*(f_k(x, u)) \right\}}\]
+
+\textbf{Optimal policy}: $\mu_k^*(x) = \arg\min_{u \in U} \left\{ q_k(x, u) + J_{k+1}^*(f_k(x,u)) \right\}$
+
+\subsection{Q-Factor (Action-Value Function)}
+\[Q_k^*(x, u) = q_k(x, u) + J_{k+1}^*(f_k(x, u))\]
+Then: $J_k^*(x) = \min_u Q_k^*(x, u)$ and $\mu_k^*(x) = \arg\min_u Q_k^*(x, u)$.
+
+Useful when the model $f_k$ is unknown but $Q^*$ can be learned directly (Q-learning in RL).
+
+\subsection{Complexity}
+Naive enumeration over all trajectories: $O(|U|^T)$.\\
+DP: $O(T \cdot |\mathcal{X}| \cdot |U|)$ — exponential savings.
+
+\subsection{Connection to Viterbi \& Dijkstra}
+\begin{tabular}{@{}p{1.8cm}p{1.5cm}p{2.2cm}@{}}
+\toprule
+\textbf{Algorithm} & \textbf{Problem} & \textbf{DP variable}\\
+\midrule
+Viterbi & MAP in HMM & $\delta_k(x) = \max P$\\
+Dijkstra & Shortest path & $\mathrm{dist}(v)$\\
+DP (5.3) & Optimal control & $J_k^*(x)$\\
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+All three are instances of the same DP principle: \textbf{optimal substructure} + \textbf{backward recursion}.
+
+\end{multicols}
+\end{document}
