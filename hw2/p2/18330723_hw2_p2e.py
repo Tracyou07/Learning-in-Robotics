@@ -157,6 +157,7 @@ def run_ukf_with_history(data_num=1):
         try:
             qv.from_rotm(R)
         except Exception:
+            print(f"Warning: from_rotm failed at vicon index {i}, using identity quaternion")
             qv = Quaternion()
         vicon_q[i] = qv.q
 
