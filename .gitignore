@@ -10,3 +10,9 @@ lec/**/out/
 
 # Duplicate hw directory (hw1/ and hw2/ are tracked at root)
 hw/
+
+# Large data files
+*.zip
+hw3/p2/KITTI/
+hw3/p3/data/images/
+hw3/hw_export.zip
