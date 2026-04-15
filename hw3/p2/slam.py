@@ -238,9 +238,13 @@ class slam_t:
         world_pts = s.lidar2world(best_p, points)
         occ_cells = s.map.grid_cell_from_xz(world_pts[:, 0], world_pts[:, 2])
 
-        # Update log-odds: add occ to occupied cells, add free to all
+        # Update log-odds: accumulate evidence at observed occupied cells.
+        # We do NOT blanket-decrement every cell each step: in a moving-car
+        # scenario most cells are only observed a handful of times, so a
+        # per-step global "free" decrement pushes them far below the
+        # occupancy threshold even if they were genuinely occupied.  Sticking
+        # to an occupied-only accumulator gives a much more legible map.
         s.map.log_odds[occ_cells[0], occ_cells[1]] += s.lidar_log_odds_occ
-        s.map.log_odds += s.lidar_log_odds_free
 
         # Clip log-odds
         np.clip(s.map.log_odds, -s.map.log_odds_max, s.map.log_odds_max, out=s.map.log_odds)

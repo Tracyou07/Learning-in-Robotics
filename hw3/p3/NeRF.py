@@ -385,16 +385,38 @@ if __name__ == "__main__":
     # Train
     losses = train(images, poses, hwf, near, far, num_samples, num_iters, model, DEVICE)
 
-    # Save training loss plot
-    plt.figure(figsize=(10, 5))
-    plt.plot(losses)
-    plt.xlabel('Iteration')
-    plt.ylabel('MSE Loss')
-    plt.title('Training Loss')
-    plt.grid(True)
+    # Save training loss plot (raw + smoothed)
+    import numpy as _np
+    losses_arr = _np.asarray(losses)
+    # Moving-average smoothing (window 25)
+    win = 25
+    if len(losses_arr) >= win:
+        smooth = _np.convolve(losses_arr, _np.ones(win) / win, mode='valid')
+        smooth_x = _np.arange(win - 1, len(losses_arr))
+    else:
+        smooth, smooth_x = losses_arr, _np.arange(len(losses_arr))
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    axes[0].plot(losses_arr, color='#9ecae1', alpha=0.6, label='per-iter MSE')
+    axes[0].plot(smooth_x, smooth, color='#08519c', linewidth=2.0,
+                 label=f'moving avg (w={win})')
+    axes[0].set_xlabel('Iteration'); axes[0].set_ylabel('MSE Loss')
+    axes[0].set_title('Training Loss (linear scale)')
+    axes[0].grid(True, alpha=0.3); axes[0].legend()
+
+    axes[1].semilogy(losses_arr, color='#fdae6b', alpha=0.6, label='per-iter MSE')
+    axes[1].semilogy(smooth_x, smooth, color='#a63603', linewidth=2.0,
+                     label=f'moving avg (w={win})')
+    axes[1].set_xlabel('Iteration'); axes[1].set_ylabel('MSE Loss (log)')
+    axes[1].set_title(f'Training Loss (log scale) — final avg {smooth[-1]:.4f}')
+    axes[1].grid(True, alpha=0.3, which='both'); axes[1].legend()
+
+    plt.suptitle(f'TinyNeRF Training: {len(losses_arr)} iterations, '
+                 f'$N_{{sample}}={num_samples}$, $h_{{dim}}={fc_dim}$', fontsize=13)
+    plt.tight_layout()
     plt.savefig('training_loss.png', dpi=150, bbox_inches='tight')
     plt.close()
-    print("Saved training_loss.png")
+    print(f"Saved training_loss.png (final smoothed loss = {smooth[-1]:.4f})")
 
     # Render training images comparison (6 images)
     model.eval()

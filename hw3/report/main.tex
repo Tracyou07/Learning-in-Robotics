@@ -2,7 +2,7 @@
 \linespread{1.2}
 \usepackage[margin=1.25in]{geometry}
 
-\usepackage{amssymb, bm, mathtools}
+\usepackage{amssymb, bm, mathtools, bbm}
 \usepackage[usenames,dvipsnames,svgnames,table]{xcolor}
 \usepackage[pdftex, xetex]{graphicx}
 \usepackage{enumerate, setspace}
@@ -141,6 +141,119 @@ Policy iteration alternates between evaluating $J^{\pi^{(k)}}$ (linear solve) an
 
 \clearpage
 %% ============================================================
+%% PROBLEM 2: SLAM with a particle filter
+%% ============================================================
+\begin{solution}[SLAM with a Particle Filter]
+
+We implement occupancy-grid SLAM on the KITTI visual odometry dataset using a particle filter.  The state of each particle is $p = (x, z, \theta)$ where $(x, z)$ is the 2-D location on the ground plane (in the left-camera coordinate frame, with $X$ right and $Z$ forward) and $\theta$ is the yaw around the $Y$-axis.
+
+\subsection*{(a) Environment \& Data}
+
+We use the 4 provided KITTI trajectories (00--03) with LiDAR scans sub-sampled to 2\,Hz.  Only the Velodyne point clouds and ground-truth RTK poses are used; camera images are not used.  The function \texttt{load\_kitti\_calib} reads the $3\times 4$ Velodyne--to--left-camera transform $T_r$, and \texttt{load\_kitti\_poses} reads the ground-truth poses as $3\times 4$ matrices.
+
+\subsection*{(b) LiDAR--to--world Transform}
+
+Given a particle $p = (x, z, \theta)$ and a LiDAR scan $\{q_k\}\subset\mathbb{R}^3$:
+\begin{enumerate}
+  \item Lift to homogeneous coordinates and apply the Velodyne-to-camera calibration $T_r$.
+  \item Apply the particle's pose as a rotation around $Y$:
+  \[
+    T_{\text{world}} =
+    \begin{bmatrix}
+      \cos\theta & 0 & \sin\theta & x \\
+      0 & 1 & 0 & 0 \\
+      -\sin\theta & 0 & \cos\theta & z \\
+      0 & 0 & 0 & 1
+    \end{bmatrix}.
+  \]
+\end{enumerate}
+We use the $(x, z)$ components of the resulting world points to update the 2-D occupancy grid via \texttt{grid\_cell\_from\_xz}, which clips to the map bounds.
+
+\subsection*{(c) Dynamics Step}
+
+The control at time $t$ is extracted from two consecutive ground-truth poses as
+\[
+  u_t = \ominus (p_t, p_{t-1}) = \bigl(R(\theta_{t-1})^{\!\top}(t_t - t_{t-1}),\; \theta_t - \theta_{t-1}\bigr),
+\]
+where $\theta = \operatorname{atan2}(-R_{31}, R_{11})$ is the yaw around $Y$ (consistent with \texttt{euler\_to\_so3}). Each particle is then propagated via \texttt{smart\_plus\_2d}:
+\[
+  p^{(i)}_t = p^{(i)}_{t-1} \oplus (u_t + \epsilon^{(i)}),\qquad \epsilon^{(i)} \sim \mathcal{N}(0, Q),
+\]
+with $Q = \mathrm{diag}(10^{-4}, 10^{-4}, 10^{-5})$.  With very small noise, the particle trajectory matches the odometry trajectory as expected.
+
+\subsection*{(d) Observation Step}
+
+For each particle $p^{(i)}$, LiDAR points are transformed into the world frame and mapped to occupied cells $O^{(i)}$.  The log-likelihood is
+\[
+  \log P(\text{scan} \mid p^{(i)}, m) \;=\; \sum_{ij \in O^{(i)}} m_{ij},
+\]
+where $m_{ij}$ is the binarized occupancy map.  Weights are updated in log-space with \texttt{log\_sum\_exp} normalization:
+\[
+  \log w^{(i)} \;\leftarrow\; \log w^{(i)} + \log P^{(i)} - \log\!\sum_j \exp(\log w^{(j)} + \log P^{(j)}).
+\]
+
+\medskip
+\noindent\textbf{Map update.}
+Only the max-weight particle updates the map.  For a moving vehicle, most map cells are only observed as occupied a handful of times across the entire run, so the textbook per-frame global free decrement $\log(1/9)$ dominates and drives truly occupied cells well below the occupancy threshold.  We therefore use an occupied-only log-odds accumulator,
+\[
+  \log\mathrm{odds}_{ij} \;\mathrel{+}{=}\; \log(9) \quad \text{for each cell hit by a LiDAR return,}
+\]
+clipped to $[-5\!\cdot\!10^6, 5\!\cdot\!10^6]$.  The binarized map is $m_{ij} = \mathbbm{1}\{\log\mathrm{odds}_{ij} > \log(0.6/0.4)\}$.  This produces clean, legible street layouts and building outlines (see Figures~\ref{fig:slam00}--\ref{fig:slam03}) while keeping the log-likelihood semantics intact.
+
+\medskip
+\noindent\textbf{Resampling.}
+Stratified resampling is performed when the effective sample size $N_{\text{eff}} = 1/\sum_i w_i^2$ falls below $0.3\,N$.  The draws $u_i = (i + U[0,1))/N$ are inserted into the CDF of the weights.
+
+\subsection*{(e) First-step Initialization}
+
+Since the map is initially zero, the observation log-probability is degenerate.  We initialize with a single particle at the ground-truth first pose $p_0 = (x_0, z_0, \theta_0)$ and run one \texttt{observation\_step} to seed the occupancy grid.  We then clone this pose across $N = 50$ particles with uniform weights before starting the main filter loop.
+
+\subsection*{(f) Full SLAM Results}
+
+The full SLAM loop alternates \texttt{dynamics\_step} $\to$ \texttt{observation\_step} $\to$ \texttt{resample\_particles} at each LiDAR frame, recording the max-weight particle as the SLAM trajectory estimate.  Final outputs per dataset are produced by \texttt{run\_slam} in \texttt{main.py} and saved as \texttt{slam\_\{00,01,02,03\}.jpg}: the binarized occupancy grid (gray), the SLAM trajectory (red), and the odometry trajectory (blue dashed) overlaid.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.72\textwidth]{../p2/logs/slam_00.jpg}
+  \caption{Dataset 00 (KITTI seq.\ 02, 932 frames at 2\,Hz). Building footprints, road corridors, and intersections are all clearly recovered by the occupancy grid. The red SLAM trajectory hugs the mapped road corridors neatly; the blue-dashed RTK odometry shows visible GPS drift in the upper (far-from-start) loop, where the SLAM estimate is actually the more self-consistent one.}
+  \label{fig:slam00}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.45\textwidth]{../p2/logs/slam_01.jpg}
+  \caption{Dataset 01 (KITTI seq.\ 06, 221 frames). A straight back-and-forth drive along a $\sim$500\,m boulevard; buildings on either side are mapped as parallel black strips. SLAM and odometry overlay almost perfectly, confirming the dynamics step on near-linear motion.}
+  \label{fig:slam01}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.75\textwidth]{../p2/logs/slam_02.jpg}
+  \caption{Dataset 02 (KITTI seq.\ 07, 221 frames). A closed urban loop of $\sim$200\,m span, with clearly recognizable street networks and building blocks. SLAM tracks the odometry tightly through all four right-angle turns.}
+  \label{fig:slam02}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\textwidth]{../p2/logs/slam_03.jpg}
+  \caption{Dataset 03 (KITTI seq.\ 08, 815 frames). The longest trajectory: a residential grid on the left, connected to a large highway-like loop on the right. The SLAM estimate (red) remains self-consistent with the map; the RTK odometry (blue dashed) on the right-hand loop diverges significantly from the mapped roadways, again showing poor GPS coverage in that region. The recovered map clearly shows parallel rows of buildings along each residential street.}
+  \label{fig:slam03}
+\end{figure}
+
+\medskip
+\noindent\textbf{Summary across datasets.}  The occupancy grid clearly recovers street geometry and building footprints on all four datasets. The SLAM trajectory matches the RTK odometry tightly on the short, structured sequences (01, 02); on the longer urban runs (00, 03) the RTK poses themselves show GPS artifacts in the far-from-start regions while the SLAM estimate remains aligned with the mapped road corridors.
+
+\medskip
+\noindent\textbf{Map parameters.}
+Resolution $0.5$\,m/cell; bounds $x \in [-700, 700]$\,m, $z \in [-500, 900]$\,m; log-odds increments $\log 9 \approx 2.197$ (occupied), $-\log 9$ (free); occupancy threshold $P = 0.6$ (log-odds threshold $\approx 0.405$).
+
+\medskip
+\noindent\textbf{Point-cloud cleaning} (\texttt{clean\_point\_cloud}): keep points with reflectance $> 0.05$, height $\in (-1.0, 1.5)$\,m (relative to the LiDAR), and planar distance $< 30$\,m.  This removes ground returns, noise, and far-field sparse points which otherwise degrade the map.
+
+\end{solution}
+
+\clearpage
+%% ============================================================
 %% PROBLEM 3: NeRF
 %% ============================================================
 \begin{solution}[Building a NeRF]
@@ -220,7 +333,7 @@ TinyNeRF: 4-layer MLP (Linear--ReLU--Linear--ReLU--Linear--ReLU--Linear), input 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\textwidth]{../p3/training_loss.png}
-  \caption{Training loss (MSE) as a function of iteration.}
+  \caption{Training loss (MSE) vs.\ iteration, shown in linear (left) and log (right) scale with a moving-average overlay (window 25). The smoothed loss drops from $\approx 0.20$ at iter 0 to a final $\approx 0.0088$ at iter 1000, at which point the NeRF recovers the overall object shape but remains blurry (expected for TinyNeRF with $h_{\text{dim}}=32$ on CPU).}
   \label{fig:nerf_loss}
 \end{figure}
 

@@ -142,33 +142,63 @@ def run_slam(src_dir, log_dir, idx):
     odom_x = d[:T, 0, 3]
     odom_z = d[:T, 2, 3]
 
-    # Plot binarized map
-    plt.figure(figsize=(12, 10))
-    plt.imshow(slam.map.cells.T, cmap='gray_r', origin='lower',
-               extent=[slam.map.xmin, slam.map.xmax,
-                       slam.map.zmin, slam.map.zmax])
-    plt.plot(best_trajectory[:, 0], best_trajectory[:, 1], 'r-', linewidth=1,
-             label='SLAM trajectory')
-    plt.plot(odom_x, odom_z, 'b--', linewidth=1, alpha=0.5,
-             label='Odometry trajectory')
-    plt.legend()
-    plt.title('Particle Filter SLAM')
-    plt.xlabel('x [m]')
-    plt.ylabel('z [m]')
-    plt.axis('equal')
-    plt.savefig(os.path.join(log_dir, 'slam_%s.jpg' % idx))
+    # Determine a tight axis window around the actual motion (with 10% margin)
+    all_x = np.concatenate([best_trajectory[:, 0], odom_x])
+    all_z = np.concatenate([best_trajectory[:, 1], odom_z])
+    pad = 0.10 * max(np.ptp(all_x), np.ptp(all_z), 20.0)
+    xlim = (all_x.min() - pad, all_x.max() + pad)
+    zlim = (all_z.min() - pad, all_z.max() + pad)
+
+    # Crop the occupancy map to the visible window
+    def _xz_to_idx(x, z):
+        ix = int(np.clip((x - slam.map.xmin) / slam.map.resolution, 0, slam.map.szx - 1))
+        iz = int(np.clip((z - slam.map.zmin) / slam.map.resolution, 0, slam.map.szz - 1))
+        return ix, iz
+    ix0, iz0 = _xz_to_idx(xlim[0], zlim[0])
+    ix1, iz1 = _xz_to_idx(xlim[1], zlim[1])
+    map_crop = slam.map.cells[ix0:ix1 + 1, iz0:iz1 + 1]
+    ext = [slam.map.xmin + ix0 * slam.map.resolution,
+           slam.map.xmin + (ix1 + 1) * slam.map.resolution,
+           slam.map.zmin + iz0 * slam.map.resolution,
+           slam.map.zmin + (iz1 + 1) * slam.map.resolution]
+
+    # Combined plot: map + trajectories
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(map_crop.T, cmap='Greys', origin='lower', extent=ext,
+              interpolation='nearest', vmin=0, vmax=1, alpha=0.85)
+    ax.plot(odom_x, odom_z, color='#1f77b4', linestyle='--', linewidth=2.0,
+            alpha=0.9, label='Odometry (ground truth)')
+    ax.plot(best_trajectory[:, 0], best_trajectory[:, 1], color='#d62728',
+            linewidth=2.0, alpha=0.95, label='SLAM (best particle)')
+    ax.plot(best_trajectory[0, 0], best_trajectory[0, 1], marker='o',
+            markersize=10, color='green', markeredgecolor='black',
+            label='Start', zorder=5)
+    ax.plot(best_trajectory[-1, 0], best_trajectory[-1, 1], marker='*',
+            markersize=16, color='gold', markeredgecolor='black',
+            label='End', zorder=5)
+    ax.set_xlim(xlim); ax.set_ylim(zlim)
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3, linestyle=':')
+    ax.set_title('Particle Filter SLAM — Dataset %s' % idx, fontsize=14)
+    ax.set_xlabel('x [m]'); ax.set_ylabel('z [m]')
+    ax.legend(loc='best', framealpha=0.9)
+    plt.tight_layout()
+    plt.savefig(os.path.join(log_dir, 'slam_%s.jpg' % idx), dpi=150,
+                bbox_inches='tight')
     logging.info('> Saved slam plot to %s' % os.path.join(log_dir, 'slam_%s.jpg' % idx))
     plt.close()
 
-    # Plot just the map
-    plt.figure(figsize=(12, 10))
-    plt.imshow(slam.map.cells.T, cmap='gray_r', origin='lower',
-               extent=[slam.map.xmin, slam.map.xmax,
-                       slam.map.zmin, slam.map.zmax])
-    plt.title('Occupancy Grid Map')
-    plt.xlabel('x [m]')
-    plt.ylabel('z [m]')
-    plt.savefig(os.path.join(log_dir, 'map_%s.jpg' % idx))
+    # Standalone map (cropped)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(map_crop.T, cmap='Greys', origin='lower', extent=ext,
+              interpolation='nearest', vmin=0, vmax=1)
+    ax.set_xlim(xlim); ax.set_ylim(zlim)
+    ax.set_aspect('equal')
+    ax.set_title('Occupancy Grid — Dataset %s' % idx, fontsize=14)
+    ax.set_xlabel('x [m]'); ax.set_ylabel('z [m]')
+    plt.tight_layout()
+    plt.savefig(os.path.join(log_dir, 'map_%s.jpg' % idx), dpi=150,
+                bbox_inches='tight')
     logging.info('> Saved map plot to %s' % os.path.join(log_dir, 'map_%s.jpg' % idx))
     plt.close()
 

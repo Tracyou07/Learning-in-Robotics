@@ -16,3 +16,7 @@ hw/
 hw3/p2/KITTI/
 hw3/p3/data/images/
 hw3/hw_export.zip
+
+# OS / temp
+__MACOSX/
+hw3/p3/train.log
