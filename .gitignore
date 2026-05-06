@@ -6,7 +6,9 @@ __pycache__/
 # LaTeX build artifacts
 *.aux
 *.synctex.gz
+*.log
 lec/**/out/
+hw*/report/out/
 
 # Duplicate hw directory (hw1/ and hw2/ are tracked at root)
 hw/
@@ -16,6 +18,11 @@ hw/
 hw3/p2/KITTI/
 hw3/p3/data/images/
 hw3/hw_export.zip
+
+# Local backups / reference materials / training artifacts
+hw3/p3/_local_backup/
+hw4/_ref/
+hw4/p2/runs/
 
 # OS / temp
 __MACOSX/
