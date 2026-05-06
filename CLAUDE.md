@@ -14,7 +14,6 @@ Coursework repository for **ESE 650: Learning in Robotics** (UPenn, Spring 2025)
 - `hw4/` — `p2/` PPO on the DeepMind Control `walker` task (`p1/` is written-only)
 - `lec/` — Lecture notes by chapter (`ch2`–`ch13`), each with slides PDF and optional `.tex` cheatsheet/summary; see `lec/README.md`
 - `proj/` — Final project materials
-- `hw/` — Older duplicate of hw1/hw2, gitignored
 
 ## Running Code
 
